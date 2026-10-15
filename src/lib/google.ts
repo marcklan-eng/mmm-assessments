@@ -116,5 +116,13 @@ export function attemptRow(a: Attempt): { headers: string[]; values: (string | n
 /** Appends a finished attempt to the assessment's tab (the script creates the tab + header row if needed). */
 export async function appendToSheet(a: Attempt): Promise<void> {
   const { headers, values } = attemptRow(a);
-  await callScript("append", { tab: getMeta(a.slug)?.title ?? a.slug, headers, values, attemptId: a.id });
+  const tab = getMeta(a.slug)?.title ?? a.slug;
+  await callScript("append", {
+    tab,
+    headers,
+    values,
+    attemptId: a.id,
+    // One row per candidate on the first (summary) tab: their latest score per assessment.
+    summary: { name: a.name, email: a.email, assessment: tab, score: a.score ?? 0 },
+  });
 }
