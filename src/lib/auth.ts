@@ -8,11 +8,16 @@ export const DEMO_MODE = process.env.DEMO_MODE === "true";
 
 const providers: NextAuthOptions["providers"] = [];
 
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+// Trim pasted values: a stray space or line break makes Google reject the client ("invalid_client").
+const clean = (v?: string) => (v ?? "").trim().replace(/^["']|["']$/g, "");
+const GOOGLE_ID = clean(process.env.GOOGLE_CLIENT_ID);
+const GOOGLE_SECRET = clean(process.env.GOOGLE_CLIENT_SECRET);
+
+if (GOOGLE_ID && GOOGLE_SECRET) {
   providers.push(
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      clientId: GOOGLE_ID,
+      clientSecret: GOOGLE_SECRET,
       authorization: { params: { prompt: "select_account" } },
     }),
   );
@@ -21,8 +26,8 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 if (process.env.AZURE_AD_CLIENT_ID && process.env.AZURE_AD_CLIENT_SECRET) {
   providers.push(
     AzureADProvider({
-      clientId: process.env.AZURE_AD_CLIENT_ID,
-      clientSecret: process.env.AZURE_AD_CLIENT_SECRET,
+      clientId: clean(process.env.AZURE_AD_CLIENT_ID),
+      clientSecret: clean(process.env.AZURE_AD_CLIENT_SECRET),
       // "common" accepts personal Microsoft accounts (Outlook, Hotmail, Live) and work/school accounts.
       tenantId: process.env.AZURE_AD_TENANT_ID || "common",
       authorization: { params: { scope: "openid profile email User.Read", prompt: "select_account" } },
@@ -98,7 +103,21 @@ export async function currentUser(): Promise<SessionUser | null> {
 }
 
 export const enabledProviders = {
-  google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+  google: Boolean(GOOGLE_ID && GOOGLE_SECRET),
   microsoft: Boolean(process.env.AZURE_AD_CLIENT_ID && process.env.AZURE_AD_CLIENT_SECRET),
   demo: DEMO_MODE,
 };
+
+/** For the setup check: shows enough of the Google Client ID to spot paste mistakes (it isn't secret). */
+export function googleClientCheck() {
+  const raw = process.env.GOOGLE_CLIENT_ID ?? "";
+  if (!raw) return "MISSING";
+  const id = GOOGLE_ID;
+  const notes = [];
+  if (raw !== id) notes.push("had extra spaces/quotes (now trimmed)");
+  if (!id.endsWith(".apps.googleusercontent.com")) notes.push("should end with .apps.googleusercontent.com");
+  if (id.startsWith("GOCSPX")) notes.push("this looks like the Client SECRET, not the Client ID");
+  if (!GOOGLE_SECRET) notes.push("GOOGLE_CLIENT_SECRET missing");
+  else if (!GOOGLE_SECRET.startsWith("GOCSPX-")) notes.push("GOOGLE_CLIENT_SECRET usually starts with GOCSPX-");
+  return `${id.slice(0, 16)}…${id.slice(-30)} (${id.length} chars)${notes.length ? " — " + notes.join("; ") : ""}`;
+}

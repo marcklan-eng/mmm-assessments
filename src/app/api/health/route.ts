@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db, usingRedis } from "@/lib/db";
-import { DEMO_MODE, enabledProviders } from "@/lib/auth";
+import { DEMO_MODE, enabledProviders, googleClientCheck } from "@/lib/auth";
 import { pingSheet, sheetConfigured } from "@/lib/google";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +34,7 @@ export async function GET() {
     commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
     otherRedisVars: Object.keys(process.env).filter((k) => /REDIS|KV_/.test(k)),
     googleSignIn: enabledProviders.google,
+    googleClientId: googleClientCheck(),
     microsoftSignIn: enabledProviders.microsoft,
     googleSheet,
   });
