@@ -12,7 +12,11 @@ export type MediaItem = {
   uploadedBy: string;
 };
 
-export const blobConfigured = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+// The storage key. Also accepts the longer name Vercel creates when the store is connected
+// with the prefix "BLOB_READ_WRITE_TOKEN".
+export const blobToken =
+  process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN_READ_WRITE_TOKEN || undefined;
+export const blobConfigured = Boolean(blobToken);
 
 export const IMAGE_TYPES: Record<string, string> = {
   png: "image/png",

@@ -3,7 +3,7 @@ import { withEvaluator } from "@/lib/adminapi";
 import { HttpError } from "@/lib/attempts";
 import { ASSESSMENTS } from "@/content/assessments";
 import { assetFiles, bundledFiles, getContent } from "@/content";
-import { blobConfigured, cleanName, contentTypeOf, listMedia, mediaKind, registerMedia, removeMedia } from "@/lib/media";
+import { blobConfigured, blobToken, cleanName, contentTypeOf, listMedia, mediaKind, registerMedia, removeMedia } from "@/lib/media";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     const pathname = String(b.pathname);
     if (!pathname.startsWith(`assessments/${slug}/`)) throw new HttpError(400, "Unexpected upload location.");
     const prev = (await listMedia(slug))[name];
-    if (prev && prev.pathname !== pathname && blobConfigured) await del(prev.pathname).catch(() => {});
+    if (prev && prev.pathname !== pathname && blobConfigured) await del(prev.pathname, { token: blobToken }).catch(() => {});
     await registerMedia(slug, { name, pathname, contentType: contentTypeOf(name), size: Number(b.size) || 0, uploadedAt: Date.now(), uploadedBy: user.email });
     return { ok: true, name, replaced: Boolean(prev) };
   }, true);
@@ -50,7 +50,7 @@ export async function DELETE(req: Request) {
     if (!item) throw new HttpError(404, "File not found.");
     const current = await getContent(slug);
     if (current && assetFiles(current).has(name)) throw new HttpError(400, "The live questions use this file. Publish questions without it first.");
-    if (blobConfigured) await del(item.pathname).catch(() => {});
+    if (blobConfigured) await del(item.pathname, { token: blobToken }).catch(() => {});
     await removeMedia(slug, name);
     return { ok: true };
   }, true);

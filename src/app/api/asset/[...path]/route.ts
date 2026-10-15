@@ -5,7 +5,7 @@ import { currentUser } from "@/lib/auth";
 import { getEligibility } from "@/lib/attempts";
 import { isEvaluator } from "@/lib/evaluators";
 import { getContent, assetFiles, bundledFiles } from "@/content";
-import { listMedia, contentTypeOf } from "@/lib/media";
+import { listMedia, contentTypeOf, blobToken } from "@/lib/media";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +38,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ path: string[] 
   // 1. Uploaded on the dashboard (Vercel Blob)
   const uploaded = (await listMedia(slug))[file];
   if (uploaded) {
-    const r = await get(uploaded.pathname, { access: "private", headers: range ? { Range: range } : undefined });
+    const r = await get(uploaded.pathname, { access: "private", token: blobToken, headers: range ? { Range: range } : undefined });
     if (!r || r.statusCode !== 200) return new Response("Not found", { status: 404 });
     const h = new Headers(baseHeaders);
     h.set("Content-Type", uploaded.contentType);

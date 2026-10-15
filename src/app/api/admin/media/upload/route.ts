@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
 import { isEditor } from "@/lib/evaluators";
 import { ASSESSMENTS } from "@/content/assessments";
-import { IMAGE_TYPES, VIDEO_TYPES } from "@/lib/media";
+import { IMAGE_TYPES, VIDEO_TYPES, blobToken } from "@/lib/media";
 
 // Issues short-lived upload tokens so the browser can upload large files straight to Blob storage.
 export async function POST(req: Request) {
@@ -12,6 +12,7 @@ export async function POST(req: Request) {
     const result = await handleUpload({
       body,
       request: req,
+      token: blobToken,
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         const user = await currentUser();
         if (!user || !(await isEditor(user.email))) throw new Error("Only people who can edit the results Sheet can upload.");
