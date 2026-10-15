@@ -33,6 +33,7 @@ export default async function Home() {
             </tbody>
           </table>
         </div>
+        <p className="small muted" style={{ marginTop: 16 }}><Link href="/privacy">Privacy notice</Link></p>
       </main>
     </>
   );
