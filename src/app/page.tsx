@@ -2,11 +2,13 @@ import Link from "next/link";
 import TopBar from "@/components/TopBar";
 import { ASSESSMENTS } from "@/content/assessments";
 import { currentUser } from "@/lib/auth";
+import { currentVersion } from "@/content";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const user = await currentUser();
+  const live = Object.fromEntries(await Promise.all(ASSESSMENTS.map(async (a) => [a.slug, (await currentVersion(a.slug)) != null] as const)));
   return (
     <>
       <TopBar email={user?.email} right={<Link className="small" href="/admin">Evaluator dashboard</Link>} />
@@ -26,7 +28,7 @@ export default async function Home() {
               {ASSESSMENTS.map((a) => (
                 <tr key={a.slug}>
                   <td><b>{a.title}</b>{a.prerequisite && <div className="small muted">After Medical Biller</div>}</td>
-                  <td>{a.status === "live" ? <span className="pill pill-good">Live</span> : <span className="pill pill-neutral">Coming soon</span>}</td>
+                  <td>{live[a.slug] ? <span className="pill pill-good">Live</span> : <span className="pill pill-neutral">Coming soon</span>}</td>
                   <td><Link href={`/a/${a.slug}`}>/a/{a.slug}</Link></td>
                 </tr>
               ))}

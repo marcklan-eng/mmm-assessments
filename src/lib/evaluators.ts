@@ -1,5 +1,5 @@
 import { DEMO_MODE } from "./auth";
-import { sheetConfigured, sheetSharedEmails } from "./google";
+import { sheetConfigured, sheetEditorEmails, sheetSharedEmails } from "./google";
 
 const extra = (process.env.ADMIN_EMAILS ?? "")
   .split(",")
@@ -17,6 +17,20 @@ export async function isEvaluator(email: string): Promise<boolean> {
   if (!sheetConfigured) return false;
   try {
     return (await sheetSharedEmails()).has(e);
+  } catch (err) {
+    console.error("Could not read Sheet sharing list", err);
+    return false;
+  }
+}
+
+/** Can publish question changes: Sheet editors (plus ADMIN_EMAILS). */
+export async function isEditor(email: string): Promise<boolean> {
+  const e = email.toLowerCase();
+  if (extra.includes(e)) return true;
+  if (dashboardOpenForDemo) return true;
+  if (!sheetConfigured) return false;
+  try {
+    return (await sheetEditorEmails()).has(e);
   } catch (err) {
     console.error("Could not read Sheet sharing list", err);
     return false;

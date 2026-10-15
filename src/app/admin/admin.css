@@ -31,3 +31,26 @@
 .q-prompt { max-width: 420px; }
 .clip { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .dash-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+
+/* Question bank */
+.qb-row { border-top: 1px solid var(--border); padding: 14px 0; }
+.qb-row:first-of-type { margin-top: 12px; }
+.qb-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.qb-btn { min-height: 34px; padding: 5px 12px; font-size: 13.5px; }
+.qb-issues { margin: 8px 0 0; padding-left: 18px; }
+.qb-issues.bad { color: var(--bad); }
+.qb-issues.warn { color: var(--warn); }
+.qb-preview { margin-top: 12px; padding: 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; max-height: 640px; overflow-y: auto; }
+.qb-media { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0 12px; }
+.qb-media figure { margin: 0; width: 160px; }
+.qb-media img { width: 160px; height: 110px; object-fit: contain; background: #fff; border: 1px solid var(--border); border-radius: 6px; display: block; }
+.qb-video { width: 160px; height: 110px; display: grid; place-items: center; background: #111; color: #fff; border-radius: 6px; font-size: 13px; }
+.qb-q { padding: 8px 0; border-top: 1px dashed var(--border); font-size: 14px; }
+.qb-q ul { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 3px; }
+.qb-q li { color: var(--text-2); }
+.qb-q li.correct { color: var(--text); font-weight: 600; }
+.qb-letter { display: inline-block; width: 20px; font-weight: 700; color: var(--text-3); }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+
+.modal-back { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgb(10 12 12 / 0.55); }
+.modal { background: var(--surface); border-radius: 12px; padding: 24px; width: 100%; max-width: 460px; box-shadow: 0 20px 60px rgb(0 0 0 / 0.3); }

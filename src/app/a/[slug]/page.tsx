@@ -17,7 +17,7 @@ export default async function AssessmentLanding({ params }: { params: Promise<{ 
   const meta = getMeta(slug);
   if (!meta) notFound();
   const user = await currentUser();
-  const content = getContent(slug);
+  const content = await getContent(slug);
 
   let body: React.ReactNode;
   if (!user) {

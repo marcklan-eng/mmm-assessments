@@ -21,7 +21,7 @@ export default async function AttemptDetail({ params }: { params: Promise<{ id: 
         const raw = await db.getAttempt(id);
         if (!raw) notFound();
         const a = await finalizeIfExpired(raw);
-        const content = getContent(a.slug);
+        const content = await getContent(a.slug, a.version ?? 0);
         const meta = getMeta(a.slug);
         let n = 0;
         return (
@@ -30,7 +30,7 @@ export default async function AttemptDetail({ params }: { params: Promise<{ id: 
             <main className="wrap-wide" style={{ maxWidth: 980 }}>
               <Link href={`/admin?assessment=${a.slug}`} className="small">← Back to dashboard</Link>
               <h1 style={{ marginTop: 10 }}>{a.name}</h1>
-              <p className="muted">{a.email} · signed in with {a.provider} · {meta?.title}</p>
+              <p className="muted">{a.email} · signed in with {a.provider} · {meta?.title} · question set v{a.version ?? 0}</p>
 
               <section className="kpis">
                 <div className="kpi"><div className="k-label">Score</div><div className="k-value">{a.score != null ? `${a.score}/${a.total}` : "—"}</div><div className="k-sub">{a.percent != null ? `${a.percent}%` : "In progress"}</div></div>

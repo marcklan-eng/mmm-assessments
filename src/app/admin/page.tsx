@@ -6,6 +6,7 @@ import { BarChart, LineChart, Legend, Meter } from "@/components/Charts";
 import { allAttempts } from "@/lib/attempts";
 import { applyFilters, overview, parseFilters, questionStats, sectionStats, weeklyTrend } from "@/lib/stats";
 import { ASSESSMENTS, getMeta } from "@/content/assessments";
+import { getContent } from "@/content";
 import { fmtDuration, sheetConfigured } from "@/lib/google";
 import { DEMO_MODE } from "@/lib/auth";
 import { dashboardOpenForDemo } from "@/lib/evaluators";
@@ -27,8 +28,26 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         const o = overview(list);
         const trend = weeklyTrend(list);
         const singleSlug = f.assessment !== "all" ? f.assessment : null;
-        const qs = singleSlug ? questionStats(list, singleSlug) : [];
-        const secs = singleSlug ? sectionStats(list, singleSlug) : [];
+        // Question analysis is per question-set version (questions can change between versions).
+        const current = singleSlug ? await getContent(singleSlug) : undefined;
+        const versionsSeen = singleSlug
+          ? [...new Set([...(current ? [current.version] : []), ...list.filter((a) => a.slug === singleSlug).map((a) => a.version ?? 0)])].sort((x, y) => y - x)
+          : [];
+        const qv = sp.qv != null && versionsSeen.includes(Number(sp.qv)) ? Number(sp.qv) : current?.version;
+        const qset = singleSlug && qv != null ? await getContent(singleSlug, qv) : undefined;
+        const qs = qset ? questionStats(list, qset) : [];
+        const secs = qset ? sectionStats(list, qset) : [];
+        const versionPicker =
+          versionsSeen.length > 1 ? (
+            <form method="get" className="small" style={{ display: "flex", gap: 8, alignItems: "center", margin: "4px 0 10px" }}>
+              {Object.entries(sp).filter(([k, v]) => k !== "qv" && v).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+              <label htmlFor="qv" className="muted">Question set</label>
+              <select id="qv" name="qv" className="input" style={{ width: "auto", minHeight: 32, padding: "4px 8px" }} defaultValue={qv}>
+                {versionsSeen.map((v) => <option key={v} value={v}>v{v}{v === current?.version ? " (current)" : ""}</option>)}
+              </select>
+              <button className="btn" style={{ minHeight: 32, padding: "4px 10px" }}>Show</button>
+            </form>
+          ) : null;
         // Medical Biller ↔ Advanced RCM side by side
         const all = await allAttempts();
         const rcmBy = new Map(all.filter((a) => a.slug === "advanced-rcm" && a.status !== "in_progress").map((a) => [a.email, a]));
@@ -57,7 +76,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   <p className="eyebrow">Executive dashboard</p>
                   <h1 style={{ marginBottom: 0 }}>{singleSlug ? `${getMeta(singleSlug)?.title} assessment` : "All assessments"}</h1>
                 </div>
-                <a className="btn" href={`/api/admin/export?${exportQs}`}>Export CSV</a>
+                <div className="btn-row">
+                  <Link className="btn" href="/admin/questions">Questions &amp; media</Link>
+                  <a className="btn" href={`/api/admin/export?${exportQs}`}>Export CSV</a>
+                </div>
               </div>
 
               <form className="filters" method="get">
@@ -119,7 +141,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               {singleSlug && secs.length > 0 && (
                 <div className="panel section-gap">
                   <h2>Average score by section</h2>
-                  <p className="sub">Share of answers correct in each section</p>
+                  <p className="sub">Share of answers correct in each section{qset ? ` · question set v${qset.version}` : ""}</p>
+                  {versionPicker}
                   <table className="data">
                     <tbody>
                       {secs.map((s) => (
@@ -137,7 +160,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               {singleSlug && qs.length > 0 && (
                 <div className="panel section-gap">
                   <h2>Most-missed questions</h2>
-                  <p className="sub">Q1–Q30 are Form items 3–32, in the same order candidates see them. Blank answers count as missed.</p>
+                  <p className="sub">Question numbers follow the order candidates see them{qset ? ` (question set v${qset.version})` : ""}. Blank answers count as missed.</p>
                   <div className="table-scroll">
                     <table className="data">
                       <thead>

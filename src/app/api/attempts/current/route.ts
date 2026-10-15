@@ -8,6 +8,6 @@ export async function GET(req: Request) {
     const slug = new URL(req.url).searchParams.get("slug") ?? "";
     const e = await getEligibility(slug, user.email);
     if (e.state !== "in-progress") return { state: e.state };
-    return { state: e.state, attempt: publicView(e.attempt) };
+    return { state: e.state, attempt: await publicView(e.attempt) };
   });
 }

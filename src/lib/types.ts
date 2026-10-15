@@ -17,6 +17,8 @@ export type Attempt = {
   name: string;
   provider: string; // google | azure-ad | demo
   status: AttemptStatus;
+  /** Question-set version this attempt was taken on (0 / missing = the original built-in questions). */
+  version?: number;
   startedAt: number;
   deadline: number;
   submittedAt?: number;

@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   const lines: string[] = [];
   let lastHeader = "";
   for (const a of list.sort((x, y) => x.slug.localeCompare(y.slug) || y.startedAt - x.startedAt)) {
-    const { headers, values } = attemptRow(a);
+    const { headers, values } = await attemptRow(a);
     const h = ["Assessment", ...headers].map(cell).join(",");
     if (h !== lastHeader) {
       if (lines.length) lines.push("");

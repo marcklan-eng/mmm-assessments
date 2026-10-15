@@ -80,13 +80,37 @@ Set `DEMO_MODE` to `false`, redeploy, and put the link into the Salesforce email
 
 ---
 
-## Changing content
-- **Questions and answer key**: `src/content/medical-biller.ts` (one entry per question; `correctIndex` 0 = first choice).
-- **Time limit, passing score, prerequisite, coming soon → live**: `src/content/assessments.ts`.
-- **Images and video**: `private-assets/<assessment>/`. These are only served to candidates with an active attempt and to evaluators.
-- **New assessment**: add a content file like `medical-biller.ts`, register it in `src/content/index.ts`, and set its status to `live`.
+## Changing questions (question bank)
+Questions live in the **Questions** tab of the results Sheet. They're published from the dashboard: **Dashboard → Questions & media**.
 
-Commit the change to GitHub, and Vercel redeploys automatically.
+1. The first time, click **Check the Questions tab → Create the Questions tab**. This fills the tab with the live questions.
+2. Edit the tab. Use one row per question, in the order candidates should see them:
+
+| Column | What goes in it |
+|---|---|
+| Assessment | The assessment name exactly, e.g. `Medical Biller`, `Dental Receptionist` |
+| Section | The section (page) title. It only needs to be filled on the section's first row |
+| Section Description | Optional text under the section title (first row of the section) |
+| Section Media | Optional images/videos for the section (first row): one per line, as `file-name.png \| Caption` |
+| Question | The question text |
+| A – F | The choices. At least A and B; leave the unused ones blank |
+| Correct | The letter of the correct choice |
+
+3. Upload any new images or videos on the same page, then use their file names in **Section Media**.
+4. Click **Check again**. Every row is checked, and problems are listed with their row number. Use **Preview** to review an assessment the way candidates will see it, with the correct answers marked.
+5. Click **Publish** for each assessment you changed. Only people who can **edit** the Sheet can publish or upload.
+
+Each publish creates a new **question set version** (v1, v2, …; v0 is the original built-in Medical Biller set):
+- Candidates who start after publishing get the new version.
+- Attempts in progress keep their version.
+- The Sheet records each result's version in a **Question Set** column.
+- The dashboard shows question analysis per version.
+
+Publishing questions for a "Coming soon" assessment makes it live.
+
+**File storage for uploads:** in Vercel, go to **Storage → Create → Blob**, choose **Private** if asked, and connect it to the project (this adds `BLOB_READ_WRITE_TOKEN`), then redeploy. The images and video that came with the app work without it.
+
+**Other settings** (time limit, passing score, prerequisite, retake period) are in `src/content/assessments.ts`.
 
 ## Content notes to revisit (kept as-is for the prototype)
 

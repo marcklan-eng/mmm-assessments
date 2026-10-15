@@ -1,5 +1,5 @@
 import type { Attempt } from "./types";
-import { getContent, allQuestions } from "@/content";
+import { allQuestions, type QuestionSet } from "@/content";
 
 export type Filters = {
   assessment: string; // slug or "all"
@@ -89,10 +89,10 @@ export function weeklyTrend(list: Attempt[]) {
   return out;
 }
 
-export function questionStats(list: Attempt[], slug: string) {
-  const content = getContent(slug);
-  if (!content) return [];
-  const done = list.filter((a) => a.status !== "in_progress" && a.slug === slug);
+/** Per-question stats for one question-set version (only attempts taken on that version). */
+export function questionStats(list: Attempt[], content: QuestionSet) {
+  const slug = content.slug;
+  const done = list.filter((a) => a.status !== "in_progress" && a.slug === slug && (a.version ?? 0) === content.version);
   return allQuestions(content)
     .map((q, i) => {
       const counts: Record<string, number> = {};
@@ -123,10 +123,9 @@ export function questionStats(list: Attempt[], slug: string) {
     .sort((a, b) => b.wrongPct - a.wrongPct || a.number - b.number);
 }
 
-export function sectionStats(list: Attempt[], slug: string) {
-  const content = getContent(slug);
-  if (!content) return [];
-  const done = list.filter((a) => a.status !== "in_progress" && a.slug === slug);
+export function sectionStats(list: Attempt[], content: QuestionSet) {
+  const slug = content.slug;
+  const done = list.filter((a) => a.status !== "in_progress" && a.slug === slug && (a.version ?? 0) === content.version);
   return content.sections.map((s) => {
     let right = 0;
     for (const a of done) for (const q of s.questions) if (a.answers[q.id] === q.answer) right++;

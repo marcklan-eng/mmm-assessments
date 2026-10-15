@@ -10,6 +10,9 @@ interface Store {
   listAttempts(): Promise<Attempt[]>;
   getLatestId(slug: string, email: string): Promise<string | null>;
   setLatestId(slug: string, email: string, id: string): Promise<void>;
+  /** Generic JSON values (question sets, media registry). */
+  getJSON<T>(key: string): Promise<T | null>;
+  setJSON(key: string, value: unknown): Promise<void>;
 }
 
 const latestKey = (slug: string, email: string) => `latest:${slug}:${email.toLowerCase()}`;
@@ -40,10 +43,16 @@ function redisStore(url: string, token: string): Store {
     async setLatestId(slug, email, id) {
       await redis.set(latestKey(slug, email), id);
     },
+    async getJSON<T>(key: string) {
+      return ((await redis.get<T>(`kv:${key}`)) ?? null) as T | null;
+    },
+    async setJSON(key, value) {
+      await redis.set(`kv:${key}`, value);
+    },
   };
 }
 
-type FileData = { attempts: Record<string, Attempt>; latest: Record<string, string> };
+type FileData = { attempts: Record<string, Attempt>; latest: Record<string, string>; kv?: Record<string, unknown> };
 
 function fileStore(): Store {
   const file = path.join(process.cwd(), ".data", "db.json");
@@ -76,6 +85,14 @@ function fileStore(): Store {
     async setLatestId(slug, email, id) {
       const d = read();
       d.latest[latestKey(slug, email)] = id;
+      write(d);
+    },
+    async getJSON<T>(key: string) {
+      return ((read().kv ?? {})[key] ?? null) as T | null;
+    },
+    async setJSON(key, value) {
+      const d = read();
+      d.kv = { ...(d.kv ?? {}), [key]: value };
       write(d);
     },
   };

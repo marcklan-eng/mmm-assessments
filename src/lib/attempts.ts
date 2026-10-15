@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { db } from "./db";
 import type { ActivityType, Attempt } from "./types";
 import { getMeta, RETAKE_MONTHS } from "@/content/assessments";
-import { getContent, allQuestions } from "@/content";
+import { getContent, allQuestions, currentVersion } from "@/content";
 import { appendToSheet, sheetConfigured } from "./google";
 import type { SessionUser } from "./auth";
 
@@ -38,7 +38,7 @@ export async function getEligibility(slug: string, email: string): Promise<Eligi
     const pre = await latestAttempt(meta.prerequisite, email);
     if (!pre || pre.status === "in_progress") return { state: "needs-prerequisite", prerequisite: meta.prerequisite };
   }
-  if (meta.status !== "live" || !getContent(slug)) return { state: "coming-soon" };
+  if ((await currentVersion(slug)) == null) return { state: "coming-soon" };
 
   const last = await latestAttempt(slug, email);
   if (last?.status === "in_progress") return { state: "in-progress", attempt: last };
@@ -52,7 +52,7 @@ export async function startAttempt(slug: string, user: SessionUser, name: string
   if (elig.state !== "eligible") throw new HttpError(403, elig.state);
 
   const meta = getMeta(slug)!;
-  const content = getContent(slug)!;
+  const content = (await getContent(slug))!;
   const now = Date.now();
   const optionOrder: Record<string, string[]> = {};
   // Questions and choices appear in the same order as the original Google Form (no shuffling).
@@ -67,6 +67,7 @@ export async function startAttempt(slug: string, user: SessionUser, name: string
     name: name.trim().slice(0, 120) || user.name || user.email,
     provider: user.provider,
     status: "in_progress",
+    version: content.version,
     startedAt: now,
     deadline: now + meta.timeLimitMinutes * 60_000,
     order,
@@ -94,7 +95,7 @@ export async function getOwnedAttempt(id: string, email: string): Promise<Attemp
 export async function saveAnswer(a: Attempt, questionId: string, optionId: string | null) {
   if (a.status !== "in_progress") throw new HttpError(409, "already-submitted");
   if (Date.now() > a.deadline + GRACE_MS) throw new HttpError(409, "time-up");
-  const content = getContent(a.slug)!;
+  const content = (await getContent(a.slug, a.version ?? 0))!;
   const q = allQuestions(content).find((x) => x.id === questionId);
   if (!q) throw new HttpError(400, "Unknown question");
   if (optionId === null) delete a.answers[questionId];
@@ -114,7 +115,7 @@ export async function logActivity(a: Attempt, type: ActivityType) {
 export async function finalize(a: Attempt, timedOut: boolean): Promise<Attempt> {
   if (a.status !== "in_progress") return a;
   const meta = getMeta(a.slug)!;
-  const qs = allQuestions(getContent(a.slug)!);
+  const qs = allQuestions((await getContent(a.slug, a.version ?? 0))!);
   const score = qs.filter((q) => a.answers[q.id] === q.answer).length;
   const now = Date.now();
   a.status = timedOut ? "timed_out" : "submitted";
@@ -163,8 +164,8 @@ export async function allAttempts(): Promise<Attempt[]> {
 }
 
 /** The candidate-facing view of an attempt: questions without the answer key. */
-export function publicView(a: Attempt) {
-  const content = getContent(a.slug)!;
+export async function publicView(a: Attempt) {
+  const content = (await getContent(a.slug, a.version ?? 0))!;
   const meta = getMeta(a.slug)!;
   const byId = new Map(allQuestions(content).map((q) => [q.id, q]));
   let n = 0;
@@ -184,7 +185,7 @@ export function publicView(a: Attempt) {
         id: s.id,
         title: s.title,
         description: s.description ?? "",
-        stimuli: (s.stimuli ?? []).map((st) => ({ ...st, url: `/api/asset/${a.slug}/${st.file}` })),
+        stimuli: (s.stimuli ?? []).map((st) => ({ ...st, url: `/api/asset/${a.slug}/${encodeURIComponent(st.file)}?v=${a.version ?? 0}` })),
         questions: o.questionIds.map((qid) => {
           const q = byId.get(qid)!;
           const opts = a.optionOrder[qid].map((oid) => q.options.find((x) => x.id === oid)!);
@@ -195,4 +196,4 @@ export function publicView(a: Attempt) {
     }),
   };
 }
-export type PublicAttempt = ReturnType<typeof publicView>;
+export type PublicAttempt = Awaited<ReturnType<typeof publicView>>;
