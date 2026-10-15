@@ -239,11 +239,14 @@ export default function ExamClient({ slug }: { slug: string }) {
                     <figcaption>{st.caption}</figcaption>
                   </figure>
                 ) : (
-                  <button key={st.file} className="stim" onClick={() => setViewer(st)}>
+                  <figure key={st.file} className="stim stim-full">
+                    <div className="stim-head">
+                      <figcaption>{st.caption}</figcaption>
+                      <button className="btn zoom-btn" onClick={() => setViewer(st)}>Zoom</button>
+                    </div>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={st.url} alt={st.caption} draggable={false} />
-                    <figcaption>{st.caption} <span className="zoom-hint">Click to enlarge</span></figcaption>
-                  </button>
+                  </figure>
                 ),
               )}
             </div>

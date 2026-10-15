@@ -77,3 +77,11 @@
   .timer { font-size: 1.1rem; padding: 3px 10px; }
   .exam-inner { padding: 20px 16px 80px; }
 }
+
+/* Reference images shown at full width (no click needed); Zoom opens the viewer for detail. */
+.stimuli { grid-template-columns: 1fr; }
+.stim-full { cursor: default; padding: 12px; }
+.stim-full img { height: auto; max-height: none; object-fit: unset; width: 100%; }
+.stim-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+.stim-full figcaption { margin: 0; font-size: 14px; }
+.zoom-btn { min-height: 32px; padding: 4px 12px; font-size: 13px; }
