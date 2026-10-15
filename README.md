@@ -13,7 +13,7 @@ This prototype has the **Medical Biller** assessment loaded. The other eight sho
 | **Timer** | 30 minutes, enforced on the server. Closing the tab doesn't stop it, and they can resume with the time left. When time runs out, their answers are submitted. |
 | **Results** | Candidates only see "Your assessment has been submitted." Score and pass/fail (80% = 24/30) go to the Sheet and the dashboard. |
 | **Advanced RCM** | Offered after Medical Biller is completed, whatever the result. Blocked until then. |
-| **Anti-cheating** | Fullscreen required. Questions blur when they leave the window. Copy/paste and right-click are blocked. Their email is watermarked on screen. Window switches, fullscreen exits, copy attempts and the Print Screen key are logged for evaluators. Question order and answer choices are shuffled per candidate. The answer key never reaches the browser. |
+| **Anti-cheating** | Fullscreen required. Questions blur when they leave the window. Copy/paste and right-click are blocked. Their email is watermarked on screen. Window switches, fullscreen exits, copy attempts and the Print Screen key are logged for evaluators. Questions and choices appear in the same order as the original Form. The answer key never reaches the browser. |
 | **Dashboard** | `/admin`. Anyone the results Sheet is shared with **by email** can sign in. It shows totals, trends, section scores, most-missed questions with the most-picked wrong answer, candidate list with answers and activity log, filters and CSV export. |
 
 ## Before real candidates use it

@@ -137,7 +137,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               {singleSlug && qs.length > 0 && (
                 <div className="panel section-gap">
                   <h2>Most-missed questions</h2>
-                  <p className="sub">Question numbers follow the original Form order (candidates see questions shuffled). Blank answers count as missed.</p>
+                  <p className="sub">Q1–Q30 are Form items 3–32, in the same order candidates see them. Blank answers count as missed.</p>
                   <div className="table-scroll">
                     <table className="data">
                       <thead>

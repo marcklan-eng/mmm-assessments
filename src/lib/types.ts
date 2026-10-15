@@ -20,7 +20,7 @@ export type Attempt = {
   startedAt: number;
   deadline: number;
   submittedAt?: number;
-  /** Per-candidate shuffled order (sections keep their order; questions and choices are shuffled). */
+  /** Question and choice order shown to this candidate (same as the Form). */
   order: { sectionId: string; questionIds: string[] }[];
   optionOrder: Record<string, string[]>;
   answers: Record<string, string>;

@@ -9,15 +9,6 @@ import type { SessionUser } from "./auth";
 /** Answers arriving up to this long after the deadline are still accepted (network delay). */
 export const GRACE_MS = 10_000;
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = crypto.randomInt(i + 1);
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 export function addMonths(ms: number, months: number) {
   const d = new Date(ms);
   d.setMonth(d.getMonth() + months);
@@ -64,9 +55,10 @@ export async function startAttempt(slug: string, user: SessionUser, name: string
   const content = getContent(slug)!;
   const now = Date.now();
   const optionOrder: Record<string, string[]> = {};
+  // Questions and choices appear in the same order as the original Google Form (no shuffling).
   const order = content.sections.map((s) => {
-    s.questions.forEach((q) => (optionOrder[q.id] = shuffle(q.options.map((o) => o.id))));
-    return { sectionId: s.id, questionIds: shuffle(s.questions.map((q) => q.id)) };
+    s.questions.forEach((q) => (optionOrder[q.id] = q.options.map((o) => o.id)));
+    return { sectionId: s.id, questionIds: s.questions.map((q) => q.id) };
   });
   const attempt: Attempt = {
     id: crypto.randomUUID(),
