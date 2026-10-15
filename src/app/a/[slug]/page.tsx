@@ -69,7 +69,7 @@ export default async function AssessmentLanding({ params }: { params: Promise<{ 
             <div className="facts">
               <div className="fact"><b>{content ? allQuestions(content).length : 0}</b><span>multiple-choice questions</span></div>
               <div className="fact"><b>{meta.timeLimitMinutes} minutes</b><span>one timer for the whole assessment</span></div>
-              <div className="fact"><b>One attempt</b><span>per email every 6 months</span></div>
+              <div className="fact"><b>One attempt</b></div>
             </div>
             <h3>Before you start</h3>
             <ul className="clean muted">
