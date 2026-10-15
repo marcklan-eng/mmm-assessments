@@ -1,0 +1,100 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import TopBar from "@/components/TopBar";
+import SignIn from "@/components/SignIn";
+import StartForm from "@/components/StartForm";
+import { currentUser, enabledProviders } from "@/lib/auth";
+import { getEligibility } from "@/lib/attempts";
+import { getMeta } from "@/content/assessments";
+import { getContent, allQuestions } from "@/content";
+
+export const dynamic = "force-dynamic";
+
+const fmt = (ms: number) => new Date(ms).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+
+export default async function AssessmentLanding({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const meta = getMeta(slug);
+  if (!meta) notFound();
+  const user = await currentUser();
+  const content = getContent(slug);
+
+  let body: React.ReactNode;
+  if (!user) {
+    body = <SignIn callbackUrl={`/a/${slug}`} providers={enabledProviders} heading="Sign in to begin" />;
+  } else {
+    const e = await getEligibility(slug, user.email);
+    switch (e.state) {
+      case "needs-prerequisite": {
+        const pre = getMeta(e.prerequisite)!;
+        body = (
+          <>
+            <h2>Complete {pre.title} first</h2>
+            <p className="muted">The {meta.title} assessment opens after you’ve completed the {pre.title} assessment.</p>
+            <Link className="btn btn-primary" href={`/a/${pre.slug}`}>Go to {pre.title}</Link>
+          </>
+        );
+        break;
+      }
+      case "coming-soon":
+        body = (
+          <>
+            <h2>Coming soon</h2>
+            <p className="muted">This assessment isn’t available yet. Please check back later or contact lead@mymountainmover.com.</p>
+          </>
+        );
+        break;
+      case "locked":
+        body = (
+          <>
+            <h2>You’ve already completed this assessment</h2>
+            <p className="muted">Thank you. Your submission has been received and is with the evaluation team.</p>
+            <div className="notice notice-info">You can retake this assessment after <b>{fmt(e.retakeAfter)}</b>.</div>
+          </>
+        );
+        break;
+      case "in-progress":
+        body = (
+          <>
+            <h2>Your assessment is in progress</h2>
+            <p className="muted">The timer kept running while you were away. Resume now to use your remaining time.</p>
+            <Link className="btn btn-primary" href={`/a/${slug}/take`}>Resume assessment</Link>
+          </>
+        );
+        break;
+      case "eligible":
+        body = (
+          <>
+            {content?.intro.map((p, i) => <p key={i} className={i ? "muted" : ""}>{p}</p>)}
+            <div className="facts">
+              <div className="fact"><b>{content ? allQuestions(content).length : 0}</b><span>multiple-choice questions</span></div>
+              <div className="fact"><b>{meta.timeLimitMinutes} minutes</b><span>one timer for the whole assessment</span></div>
+              <div className="fact"><b>One attempt</b><span>per email every 6 months</span></div>
+            </div>
+            <h3>Before you start</h3>
+            <ul className="clean muted">
+              <li>The assessment runs in <b>fullscreen</b>. Leaving fullscreen or switching windows hides the questions, and it is recorded.</li>
+              <li>The timer starts when you click Start and keeps running if you close the page.</li>
+              <li>Answers save automatically. When time runs out, your answers are submitted.</li>
+              <li>Use a computer with a stable connection and sound (there is a short video).</li>
+            </ul>
+            <StartForm slug={slug} defaultName={user.name} />
+          </>
+        );
+        break;
+      default:
+        notFound();
+    }
+  }
+
+  return (
+    <>
+      <TopBar email={user?.email} />
+      <main className="wrap">
+        <p className="eyebrow">Skills assessment</p>
+        <h1>{meta.title} Assessment</h1>
+        <div className="card" style={{ marginTop: 16 }}>{body}</div>
+      </main>
+    </>
+  );
+}

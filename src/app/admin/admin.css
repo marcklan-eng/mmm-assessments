@@ -1,0 +1,33 @@
+.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin: 12px 0 20px; }
+.filters .field { margin: 0; min-width: 140px; flex: 1 1 140px; }
+.filters .field label { font-size: 12.5px; color: var(--text-2); font-weight: 600; }
+.filters .input { min-height: 38px; padding: 7px 10px; font-size: 14px; }
+.filters .btn { min-height: 38px; padding: 7px 14px; }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.kpi .k-label { font-size: 13px; color: var(--text-2); }
+.kpi .k-value { font-size: 1.75rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.2; margin-top: 2px; }
+.kpi .k-sub { font-size: 12.5px; color: var(--text-3); }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+@media (max-width: 860px) { .grid-2 { grid-template-columns: 1fr; } }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+.panel h2 { font-size: 1rem; margin-bottom: 2px; }
+.panel .sub { font-size: 13px; color: var(--text-3); margin-bottom: 10px; }
+.section-gap { margin-top: 16px; }
+
+.chart { width: 100%; height: auto; display: block; }
+.chart .grid { stroke: var(--border); stroke-width: 1; }
+.chart .ref { stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.chart .tick { fill: var(--text-3); font-size: 11px; font-family: inherit; }
+.chart-empty { padding: 40px 0; text-align: center; color: var(--text-3); font-size: 14px; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--text-2); margin-bottom: 6px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+.meter { height: 6px; background: var(--surface-2); border-radius: 99px; overflow: hidden; min-width: 80px; border: 1px solid var(--border); }
+.meter div { height: 100%; border-radius: 99px; }
+
+.q-prompt { max-width: 420px; }
+.clip { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.dash-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
