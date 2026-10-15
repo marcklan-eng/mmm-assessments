@@ -105,7 +105,6 @@ export const medicalBiller: AssessmentContent = {
           ],
           2,
         ),
-        // DRAFT KEY — confirm with the official answer key.
         q(
           9,
           "The superbill total is $530. To ensure compliance, you should check all of the following EXCEPT:",
@@ -115,7 +114,7 @@ export const medicalBiller: AssessmentContent = {
             "The billed charges match the payer’s maximum allowable fees",
             "The patient signed the superbill at the time of service",
           ],
-          2,
+          3,
         ),
       ],
     },

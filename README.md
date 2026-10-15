@@ -89,7 +89,7 @@ Set `DEMO_MODE` to `false`, redeploy, and put the link into the Salesforce email
 Commit the change to GitHub, and Vercel redeploys automatically.
 
 ## Content notes to revisit (kept as-is for the prototype)
-- **Q9** uses a draft answer ("billed charges match the payer's maximum allowable fees"). Confirm it against the official key.
+
 - **Q1 and Q4** have the same answer, and Q4 gives away Q1.
 - **Q28** says "retro authorization request" but asks about the appeal.
 - **CMS-1500** is filled out for Susan Smith / ABC Health, while the questions reference Edward Collins / Aetna.
