@@ -53,6 +53,7 @@ if (DEMO_MODE) {
 
 export const authOptions: NextAuthOptions = {
   providers,
+  secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt", maxAge: 60 * 60 * 8 },
   pages: { signIn: "/signin" },
   callbacks: {
@@ -77,7 +78,16 @@ export const authOptions: NextAuthOptions = {
 export type SessionUser = { email: string; name: string; provider: string };
 
 export async function currentUser(): Promise<SessionUser | null> {
-  const s = await getServerSession(authOptions);
+  let s;
+  try {
+    s = await getServerSession(authOptions);
+  } catch (e) {
+    if (process.env.NEXTAUTH_SECRET) throw e; // let Next.js handle its own internal errors
+    // A missing NEXTAUTH_SECRET. Treat as signed out instead of crashing the page;
+    // /api/health shows which setting is missing.
+    console.error("Could not read session", e);
+    return null;
+  }
   const email = s?.user?.email?.toLowerCase();
   if (!email) return null;
   return {

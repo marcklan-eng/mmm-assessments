@@ -3,6 +3,8 @@ import TopBar from "@/components/TopBar";
 import { ASSESSMENTS } from "@/content/assessments";
 import { currentUser } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const user = await currentUser();
   return (
