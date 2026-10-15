@@ -1,27 +1,38 @@
-// Google Sheet results + evaluator access (via the Sheet's sharing list).
-import { google } from "googleapis";
+// Google Sheet results + evaluator access, via an Apps Script web app inside the results Sheet.
+// The script (apps-script/Code.gs) appends rows and reports who the Sheet is shared with.
 import type { Attempt } from "./types";
 import { getMeta } from "@/content/assessments";
 import { getContent, allQuestions } from "@/content";
 
-const SHEET_ID = process.env.GOOGLE_SHEET_ID;
+const WEBHOOK_URL = process.env.SHEET_WEBHOOK_URL;
+const WEBHOOK_SECRET = process.env.SHEET_WEBHOOK_SECRET;
 
-function credentials() {
-  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!raw) return null;
-  const text = raw.trim().startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8");
-  return JSON.parse(text);
+export const sheetConfigured = Boolean(WEBHOOK_URL && WEBHOOK_SECRET);
+
+async function callScript<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
+  if (!WEBHOOK_URL || !WEBHOOK_SECRET) throw new Error("Google Sheet is not configured");
+  // Apps Script answers POSTs with a redirect to the result; fetch follows it.
+  const res = await fetch(WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ secret: WEBHOOK_SECRET, action, ...payload }),
+    redirect: "follow",
+    cache: "no-store",
+  });
+  const text = await res.text();
+  let json: { ok?: boolean; error?: string } & T;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(`Sheet script returned an unexpected response (HTTP ${res.status}). Check the web app deployment and access setting.`);
+  }
+  if (!json.ok) throw new Error(`Sheet script error: ${json.error ?? "unknown"}`);
+  return json;
 }
 
-export const sheetConfigured = Boolean(SHEET_ID && process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
-
-function auth() {
-  const creds = credentials();
-  if (!creds || !SHEET_ID) return null;
-  return new google.auth.GoogleAuth({
-    credentials: creds,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive.readonly"],
-  });
+export async function pingSheet(): Promise<string> {
+  const r = await callScript<{ sheetName: string }>("ping");
+  return r.sheetName;
 }
 
 // ---------- Evaluator access ----------
@@ -31,23 +42,8 @@ let shareCache: { at: number; emails: Set<string> } | null = null;
 /** Everyone the Sheet is shared with by email (cached for 5 minutes). */
 export async function sheetSharedEmails(): Promise<Set<string>> {
   if (shareCache && Date.now() - shareCache.at < 5 * 60_000) return shareCache.emails;
-  const a = auth();
-  if (!a || !SHEET_ID) return new Set();
-  const drive = google.drive({ version: "v3", auth: a });
-  const emails = new Set<string>();
-  let pageToken: string | undefined;
-  do {
-    const res = await drive.permissions.list({
-      fileId: SHEET_ID,
-      fields: "nextPageToken, permissions(emailAddress, type, role)",
-      supportsAllDrives: true,
-      pageToken,
-    });
-    for (const p of res.data.permissions ?? []) {
-      if (p.emailAddress && (p.type === "user" || p.type === "group")) emails.add(p.emailAddress.toLowerCase());
-    }
-    pageToken = res.data.nextPageToken ?? undefined;
-  } while (pageToken);
+  const r = await callScript<{ emails: string[] }>("sharedEmails");
+  const emails = new Set(r.emails.map((e) => e.toLowerCase()));
   shareCache = { at: Date.now(), emails };
   return emails;
 }
@@ -117,35 +113,8 @@ export function attemptRow(a: Attempt): { headers: string[]; values: (string | n
   return { headers, values };
 }
 
-/** Appends a finished attempt to the assessment's tab (creating the tab + header row if needed). */
+/** Appends a finished attempt to the assessment's tab (the script creates the tab + header row if needed). */
 export async function appendToSheet(a: Attempt): Promise<void> {
-  const ga = auth();
-  if (!ga || !SHEET_ID) throw new Error("Google Sheet is not configured");
-  const sheets = google.sheets({ version: "v4", auth: ga });
-  const tab = getMeta(a.slug)?.title ?? a.slug;
   const { headers, values } = attemptRow(a);
-
-  const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID, fields: "sheets.properties.title" });
-  const exists = meta.data.sheets?.some((s) => s.properties?.title === tab);
-  if (!exists) {
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SHEET_ID,
-      requestBody: {
-        requests: [{ addSheet: { properties: { title: tab, gridProperties: { frozenRowCount: 1 } } } }],
-      },
-    });
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
-      range: `'${tab}'!A1`,
-      valueInputOption: "RAW",
-      requestBody: { values: [headers] },
-    });
-  }
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: SHEET_ID,
-    range: `'${tab}'!A1`,
-    valueInputOption: "RAW", // RAW so names/answers are never interpreted as formulas
-    insertDataOption: "INSERT_ROWS",
-    requestBody: { values: [values] },
-  });
+  await callScript("append", { tab: getMeta(a.slug)?.title ?? a.slug, headers, values, attemptId: a.id });
 }

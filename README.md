@@ -44,24 +44,27 @@ In Vercel: **Settings → Environment Variables**:
 
 Redeploy (**Deployments → ⋯ → Redeploy**). You can now test the whole flow with demo sign-in.
 
-### 4. Google Cloud (Google sign-in + Sheet access)
-In https://console.cloud.google.com, create a project (e.g. "MMM Assessments"):
-1. **APIs & Services → Library**: enable **Google Sheets API** and **Google Drive API**.
-2. **OAuth consent screen**: External, app name "My Mountain Mover Assessments", your support email, then **Publish app**.
-3. **Credentials → Create credentials → OAuth client ID → Web application**.
+### 4. Google sign-in (Google Cloud, sign-in button only)
+In https://console.cloud.google.com, create a project (e.g. "MMM Assessments"), then:
+1. Go to **OAuth consent screen** (or **Google Auth Platform → Branding**). Set the app name to "My Mountain Mover Assessments", enter your support email, set the audience to **External**, then **Publish app**.
+2. Go to **Credentials → Create credentials → OAuth client ID → Web application**.
    Authorized redirect URI: `https://YOUR-APP.vercel.app/api/auth/callback/google`
    Copy the values into Vercel as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
-4. **Credentials → Create credentials → Service account** (name: `assessment-results`). Open it → **Keys → Add key → JSON**.
-   Paste the entire JSON file contents into Vercel as `GOOGLE_SERVICE_ACCOUNT_JSON`.
 
-### 5. The results Google Sheet
-1. Create a Google Sheet (e.g. "Skills Assessment Results").
-2. **Share** it with the service account email (looks like `assessment-results@….iam.gserviceaccount.com`) as **Editor**.
-3. Share it with each evaluator **by email**. These people get dashboard access. "Anyone with the link" or "anyone in the organization" sharing doesn't count.
-4. Copy the Sheet ID (the long code in the URL between `/d/` and `/edit`) into Vercel as `GOOGLE_SHEET_ID`.
+### 5. The results Google Sheet (Apps Script, no Google Cloud needed)
+1. Create a Google Sheet in your Drive (e.g. "Skills Assessment Results").
+2. Open **Extensions → Apps Script**, delete what's there, and paste in `apps-script/Code.gs`.
+   Set `SECRET` to a long random password.
+3. Click **Run** with the `authorize` function selected, then allow the permissions.
+4. Click **Deploy → New deployment → Web app**. Set **Execute as: Me** and **Who has access: Anyone**, then click **Deploy**. Copy the Web app URL.
+5. In Vercel, add `SHEET_WEBHOOK_URL` (the URL) and `SHEET_WEBHOOK_SECRET` (the same password).
+6. Share the Sheet with each evaluator **by email**. These people get dashboard access. "Anyone with the link" or "anyone in the organization" sharing doesn't count.
 
 The app creates one tab per assessment automatically, with a header row, on the first submission.
 Dashboard access updates within about 5 minutes of changing the sharing.
+If you edit the script later, use **Deploy → Manage deployments → Edit → New version**, so the URL stays the same.
+When moving to a shared company account: transfer Sheet ownership, then redeploy the script from that account and update `SHEET_WEBHOOK_URL`.
+Check the connection at `/api/health`. It should say `"googleSheet": "connected: <Sheet name>"`.
 
 ### 6. Microsoft sign-in
 In https://portal.azure.com (sign in with any Microsoft account), go to **App registrations → New registration**:

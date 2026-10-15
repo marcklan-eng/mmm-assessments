@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, usingRedis } from "@/lib/db";
 import { DEMO_MODE, enabledProviders } from "@/lib/auth";
-import { sheetConfigured } from "@/lib/google";
+import { pingSheet, sheetConfigured } from "@/lib/google";
 
 export const dynamic = "force-dynamic";
 
@@ -16,17 +16,25 @@ export async function GET() {
       storage = `redis: ERROR ${(e as Error).message.slice(0, 120)}`;
     }
   }
+  let googleSheet = sheetConfigured ? "configured" : "not configured";
+  if (sheetConfigured) {
+    try {
+      googleSheet = `connected: ${await pingSheet()}`;
+    } catch (e) {
+      googleSheet = `ERROR ${(e as Error).message.slice(0, 160)}`;
+    }
+  }
   return NextResponse.json({
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ? "set" : "MISSING",
     NEXTAUTH_URL: process.env.NEXTAUTH_URL ?? "MISSING",
     DEMO_MODE,
     storage,
-    projectVarNames: Object.keys(process.env).filter((k) => /AUTH|DEMO|GOOGLE|AZURE|ADMIN|KV_|REDIS/i.test(k)).sort(),
+    projectVarNames: ["NEXTAUTH_SECRET","NEXTAUTH_URL","DEMO_MODE","GOOGLE_CLIENT_ID","GOOGLE_CLIENT_SECRET","AZURE_AD_CLIENT_ID","AZURE_AD_CLIENT_SECRET","AZURE_AD_TENANT_ID","SHEET_WEBHOOK_URL","SHEET_WEBHOOK_SECRET","ADMIN_EMAILS"].filter((k) => process.env[k]),
     vercelEnv: process.env.VERCEL_ENV ?? null,
     commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
     otherRedisVars: Object.keys(process.env).filter((k) => /REDIS|KV_/.test(k)),
     googleSignIn: enabledProviders.google,
     microsoftSignIn: enabledProviders.microsoft,
-    googleSheet: sheetConfigured,
+    googleSheet,
   });
 }
