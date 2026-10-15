@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, usingRedis } from "@/lib/db";
 import { DEMO_MODE, enabledProviders, googleClientCheck } from "@/lib/auth";
-import { pingSheet, sheetConfigured } from "@/lib/google";
+import { pingQuestionsSheet, pingSheet, questionsSeparate, sheetConfigured } from "@/lib/google";
 
 export const dynamic = "force-dynamic";
 
@@ -24,12 +24,20 @@ export async function GET() {
       googleSheet = `ERROR ${(e as Error).message.slice(0, 160)}`;
     }
   }
+  let questionsSheet = questionsSeparate ? "configured" : "same as results Sheet";
+  if (questionsSeparate) {
+    try {
+      questionsSheet = `connected: ${await pingQuestionsSheet()}`;
+    } catch (e) {
+      questionsSheet = `ERROR ${(e as Error).message.slice(0, 160)}`;
+    }
+  }
   return NextResponse.json({
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ? "set" : "MISSING",
     NEXTAUTH_URL: process.env.NEXTAUTH_URL ?? "MISSING",
     DEMO_MODE,
     storage,
-    projectVarNames: ["NEXTAUTH_SECRET","NEXTAUTH_URL","DEMO_MODE","GOOGLE_CLIENT_ID","GOOGLE_CLIENT_SECRET","AZURE_AD_CLIENT_ID","AZURE_AD_CLIENT_SECRET","AZURE_AD_TENANT_ID","SHEET_WEBHOOK_URL","SHEET_WEBHOOK_SECRET","ADMIN_EMAILS"].filter((k) => process.env[k]),
+    projectVarNames: ["NEXTAUTH_SECRET","NEXTAUTH_URL","DEMO_MODE","GOOGLE_CLIENT_ID","GOOGLE_CLIENT_SECRET","AZURE_AD_CLIENT_ID","AZURE_AD_CLIENT_SECRET","AZURE_AD_TENANT_ID","SHEET_WEBHOOK_URL","SHEET_WEBHOOK_SECRET","QUESTIONS_WEBHOOK_URL","QUESTIONS_WEBHOOK_SECRET","BLOB_READ_WRITE_TOKEN","BLOB_READ_WRITE_TOKEN_READ_WRITE_TOKEN","ADMIN_EMAILS"].filter((k) => process.env[k]),
     vercelEnv: process.env.VERCEL_ENV ?? null,
     commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
     otherRedisVars: Object.keys(process.env).filter((k) => /REDIS|KV_/.test(k)),
@@ -37,5 +45,6 @@ export async function GET() {
     googleClientId: googleClientCheck(),
     microsoftSignIn: enabledProviders.microsoft,
     googleSheet,
+    questionsSheet,
   });
 }

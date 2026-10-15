@@ -22,7 +22,7 @@ export async function GET() {
       out.push({ slug: a.slug, title: a.title, items: items.sort((x, y) => x.name.localeCompare(y.name)) });
     }
     return { blobConfigured, assessments: out };
-  });
+  }, "questions");
 }
 
 // Record a finished upload under its file name (called by the page after the upload completes).
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     if (prev && prev.pathname !== pathname && blobConfigured) await del(prev.pathname, { token: blobToken }).catch(() => {});
     await registerMedia(slug, { name, pathname, contentType: contentTypeOf(name), size: Number(b.size) || 0, uploadedAt: Date.now(), uploadedBy: user.email });
     return { ok: true, name, replaced: Boolean(prev) };
-  }, true);
+  }, "editor");
 }
 
 // Remove an uploaded file (not allowed while the live questions use it).
@@ -53,5 +53,5 @@ export async function DELETE(req: Request) {
     if (blobConfigured) await del(item.pathname, { token: blobToken }).catch(() => {});
     await removeMedia(slug, name);
     return { ok: true };
-  }, true);
+  }, "editor");
 }

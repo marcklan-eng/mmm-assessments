@@ -1,21 +1,35 @@
-// Google Sheet results + evaluator access, via an Apps Script web app inside the results Sheet.
-// The script (apps-script/Code.gs) appends rows and reports who the Sheet is shared with.
+// Google Sheets via Apps Script web apps (apps-script/Code.gs, the same script in both Sheets):
+// - the results Sheet: result rows, the summary tab, and dashboard access (who it's shared with)
+// - the questions Sheet: the Questions tab (question bank) and who may edit/publish questions
 import type { Attempt } from "./types";
 import { getMeta } from "@/content/assessments";
 import { getContent, allQuestions, type QuestionSet } from "@/content";
 
-const WEBHOOK_URL = process.env.SHEET_WEBHOOK_URL;
-const WEBHOOK_SECRET = process.env.SHEET_WEBHOOK_SECRET;
+type Target = { url?: string; secret?: string; label: string };
 
-export const sheetConfigured = Boolean(WEBHOOK_URL && WEBHOOK_SECRET);
+// The results Sheet (results rows, summary, dashboard access).
+const RESULTS: Target = { url: process.env.SHEET_WEBHOOK_URL, secret: process.env.SHEET_WEBHOOK_SECRET, label: "results Sheet" };
+// The question bank Sheet. Optional: without it, the Questions tab lives in the results Sheet.
+const QUESTIONS_SEPARATE = Boolean(process.env.QUESTIONS_WEBHOOK_URL);
+const QUESTIONS: Target = QUESTIONS_SEPARATE
+  ? {
+      url: process.env.QUESTIONS_WEBHOOK_URL,
+      secret: process.env.QUESTIONS_WEBHOOK_SECRET || process.env.SHEET_WEBHOOK_SECRET,
+      label: "questions Sheet",
+    }
+  : RESULTS;
 
-async function callScript<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
-  if (!WEBHOOK_URL || !WEBHOOK_SECRET) throw new Error("Google Sheet is not configured");
+export const sheetConfigured = Boolean(RESULTS.url && RESULTS.secret);
+export const questionsConfigured = Boolean(QUESTIONS.url && QUESTIONS.secret);
+export const questionsSeparate = QUESTIONS_SEPARATE;
+
+async function callTarget<T>(t: Target, action: string, payload: Record<string, unknown> = {}): Promise<T> {
+  if (!t.url || !t.secret) throw new Error(`The ${t.label} is not connected yet.`);
   // Apps Script answers POSTs with a redirect to the result; fetch follows it.
-  const res = await fetch(WEBHOOK_URL, {
+  const res = await fetch(t.url.trim(), {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ secret: WEBHOOK_SECRET, action, ...payload }),
+    body: JSON.stringify({ secret: t.secret.trim(), action, ...payload }),
     redirect: "follow",
     cache: "no-store",
   });
@@ -24,11 +38,18 @@ async function callScript<T>(action: string, payload: Record<string, unknown> = 
   try {
     json = JSON.parse(text);
   } catch {
-    throw new Error(`Sheet script returned an unexpected response (HTTP ${res.status}). Check the web app deployment and access setting.`);
+    throw new Error(`The ${t.label} script returned an unexpected response (HTTP ${res.status}). Check its web app deployment and access setting.`);
   }
-  if (!json.ok) throw new Error(`Sheet script error: ${json.error ?? "unknown"}`);
+  if (!json.ok) {
+    if (json.error === "unknown action") {
+      throw new Error(`The ${t.label} is running an older version of the Apps Script. Paste in the latest Code.gs and deploy a new version.`);
+    }
+    if (json.error === "unauthorized") throw new Error(`The password for the ${t.label} script doesn't match the one in Vercel.`);
+    throw new Error(`${t.label} script error: ${json.error ?? "unknown"}`);
+  }
   return json;
 }
+const callScript = <T,>(action: string, payload: Record<string, unknown> = {}) => callTarget<T>(RESULTS, action, payload);
 
 let versionCache: { at: number; v: number } | null = null;
 
@@ -38,59 +59,63 @@ export async function pingSheet(): Promise<string> {
   return r.sheetName;
 }
 
+export async function pingQuestionsSheet(): Promise<string> {
+  const r = await callTarget<{ sheetName: string }>(QUESTIONS, "ping");
+  return r.sheetName;
+}
+
 /** Which version of apps-script/Code.gs is deployed (1 = before the question bank). */
 async function scriptVersion(): Promise<number> {
   if (!versionCache || Date.now() - versionCache.at > 5 * 60_000) await pingSheet();
   return versionCache!.v;
 }
 
-// ---------- Evaluator access ----------
+// ---------- Access (who a Sheet is shared with) ----------
 
-let shareCache: { at: number; emails: Set<string>; editors: Set<string> } | null = null;
+type Sharing = { at: number; emails: Set<string>; editors: Set<string> };
+const shareCache = new Map<Target, Sharing>();
 
-async function sharing() {
-  if (shareCache && Date.now() - shareCache.at < 5 * 60_000) return shareCache;
-  const r = await callScript<{ emails: string[]; editors?: string[] }>("sharedEmails");
+async function sharing(t: Target): Promise<Sharing> {
+  const hit = shareCache.get(t);
+  if (hit && Date.now() - hit.at < 5 * 60_000) return hit;
+  const r = await callTarget<{ emails: string[]; editors?: string[] }>(t, "sharedEmails");
   const lower = (xs: string[]) => new Set(xs.map((e) => e.toLowerCase()));
   const result = { at: Date.now(), emails: lower(r.emails), editors: lower(r.editors ?? []) };
   // Older scripts don't report editors; don't cache that, so the update is picked up right away.
-  shareCache = r.editors ? result : null;
+  if (r.editors) shareCache.set(t, result);
   return result;
 }
 
-/** Everyone the Sheet is shared with by email (cached for 5 minutes). */
+/** Everyone the results Sheet is shared with by email (dashboard access; cached for 5 minutes). */
 export async function sheetSharedEmails(): Promise<Set<string>> {
-  return (await sharing()).emails;
+  return (await sharing(RESULTS)).emails;
 }
 
-/** People who can edit the Sheet (they can also publish questions). */
-export async function sheetEditorEmails(): Promise<Set<string>> {
-  return (await sharing()).editors;
+/** Everyone the questions Sheet is shared with (can check and preview questions). */
+export async function questionsSharedEmails(): Promise<Set<string>> {
+  return (await sharing(QUESTIONS)).emails;
+}
+
+/** Editors of the questions Sheet (can publish questions and upload media). */
+export async function questionsEditorEmails(): Promise<Set<string>> {
+  return (await sharing(QUESTIONS)).editors;
 }
 
 // ---------- Questions tab ----------
 
+/** Link to the questions Sheet (learned from the script). */
+export let sheetUrl: string | null = null;
+
 /** Rows of the "Questions" tab as displayed text (null if the tab doesn't exist). */
 export async function readQuestionRows(): Promise<string[][] | null> {
-  let r: { rows: string[][] | null; url?: string };
-  try {
-    r = await callScript<{ rows: string[][] | null; url?: string }>("readQuestions");
-  } catch (e) {
-    if (/unknown action/.test((e as Error).message)) {
-      throw new Error("The results Sheet is running an older version of the Apps Script. Paste in the latest Code.gs and deploy a new version.");
-    }
-    throw e;
-  }
+  const r = await callTarget<{ rows: string[][] | null; url?: string }>(QUESTIONS, "readQuestions");
   if (r.url) sheetUrl = r.url;
   return r.rows;
 }
 
-/** Link to the results Sheet (learned from the script). */
-export let sheetUrl: string | null = null;
-
 /** Creates the Questions tab with these rows. Refuses if it already has content. */
 export async function seedQuestionRows(rows: string[][]): Promise<{ created: boolean; reason?: string }> {
-  return callScript<{ created: boolean; reason?: string }>("seedQuestions", { rows });
+  return callTarget<{ created: boolean; reason?: string }>(QUESTIONS, "seedQuestions", { rows });
 }
 
 // ---------- Results rows ----------

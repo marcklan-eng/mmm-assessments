@@ -1,5 +1,5 @@
 import { DEMO_MODE } from "./auth";
-import { sheetConfigured, sheetEditorEmails, sheetSharedEmails } from "./google";
+import { questionsConfigured, questionsEditorEmails, questionsSharedEmails, sheetConfigured, sheetSharedEmails } from "./google";
 
 const extra = (process.env.ADMIN_EMAILS ?? "")
   .split(",")
@@ -23,16 +23,30 @@ export async function isEvaluator(email: string): Promise<boolean> {
   }
 }
 
-/** Can publish question changes: Sheet editors (plus ADMIN_EMAILS). */
+/** Can open the question bank (check + preview, which shows the answer key): anyone the questions Sheet is shared with. */
+export async function canViewQuestions(email: string): Promise<boolean> {
+  const e = email.toLowerCase();
+  if (extra.includes(e)) return true;
+  if (dashboardOpenForDemo) return true;
+  if (!questionsConfigured) return false;
+  try {
+    return (await questionsSharedEmails()).has(e);
+  } catch (err) {
+    console.error("Could not read questions Sheet sharing list", err);
+    return false;
+  }
+}
+
+/** Can publish questions and upload media: editors of the questions Sheet (plus ADMIN_EMAILS). */
 export async function isEditor(email: string): Promise<boolean> {
   const e = email.toLowerCase();
   if (extra.includes(e)) return true;
   if (dashboardOpenForDemo) return true;
-  if (!sheetConfigured) return false;
+  if (!questionsConfigured) return false;
   try {
-    return (await sheetEditorEmails()).has(e);
+    return (await questionsEditorEmails()).has(e);
   } catch (err) {
-    console.error("Could not read Sheet sharing list", err);
+    console.error("Could not read questions Sheet sharing list", err);
     return false;
   }
 }

@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       token: blobToken,
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         const user = await currentUser();
-        if (!user || !(await isEditor(user.email))) throw new Error("Only people who can edit the results Sheet can upload.");
+        if (!user || !(await isEditor(user.email))) throw new Error("Only people who can edit the questions Sheet can upload.");
         const slug = String(clientPayload ?? "");
         if (!ASSESSMENTS.some((a) => a.slug === slug) || !pathname.startsWith(`assessments/${slug}/`)) throw new Error("Unknown assessment.");
         return {

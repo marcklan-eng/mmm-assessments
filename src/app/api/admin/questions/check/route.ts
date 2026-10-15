@@ -11,5 +11,5 @@ export async function GET() {
     const rows = await readQuestionRows();
     if (!rows) return { tab: false, sheetUrl: google.sheetUrl };
     return { tab: true, sheetUrl: google.sheetUrl, ...(await parseQuestionRows(rows)) };
-  });
+  }, "questions");
 }

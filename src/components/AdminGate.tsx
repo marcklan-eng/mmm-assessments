@@ -1,10 +1,18 @@
 import TopBar from "./TopBar";
 import SignIn from "./SignIn";
 import { currentUser, enabledProviders, type SessionUser } from "@/lib/auth";
-import { isEvaluator } from "@/lib/evaluators";
+import { canViewQuestions, isEvaluator } from "@/lib/evaluators";
 
 /** Renders children(user) only for evaluators (people the results Sheet is shared with). */
-export default async function AdminGate({ path, children }: { path: string; children: (u: SessionUser) => Promise<React.ReactNode> }) {
+export default async function AdminGate({
+  path,
+  children,
+  access = "results",
+}: {
+  path: string;
+  children: (u: SessionUser) => Promise<React.ReactNode>;
+  access?: "results" | "questions";
+}) {
   const user = await currentUser();
   if (!user) {
     return (
@@ -18,7 +26,8 @@ export default async function AdminGate({ path, children }: { path: string; chil
       </>
     );
   }
-  if (!(await isEvaluator(user.email))) {
+  const ok = access === "questions" ? await canViewQuestions(user.email) : await isEvaluator(user.email);
+  if (!ok) {
     return (
       <>
         <TopBar email={user.email} />
@@ -26,7 +35,8 @@ export default async function AdminGate({ path, children }: { path: string; chil
           <div className="card">
             <h2>No dashboard access</h2>
             <p className="muted">
-              The dashboard is open to people the results Google Sheet is shared with. Ask the Sheet owner to share it with
+              {access === "questions" ? "The question bank" : "The dashboard"} is open to people the{" "}
+              {access === "questions" ? "questions" : "results"} Google Sheet is shared with. Ask the Sheet owner to share it with
               <b> {user.email}</b> (by email, not “anyone with the link”), then reload this page in a few minutes.
             </p>
           </div>

@@ -19,5 +19,5 @@ export async function POST(req: Request) {
     if (!a.changed) throw new HttpError(400, "These questions are already live.");
     const version = await publishSet(slug, a.content, user.email);
     return { ok: true, version };
-  }, true);
+  }, "editor");
 }

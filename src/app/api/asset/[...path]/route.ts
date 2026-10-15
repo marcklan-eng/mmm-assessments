@@ -3,7 +3,7 @@ import path from "node:path";
 import { get } from "@vercel/blob";
 import { currentUser } from "@/lib/auth";
 import { getEligibility } from "@/lib/attempts";
-import { isEvaluator } from "@/lib/evaluators";
+import { canViewQuestions, isEvaluator } from "@/lib/evaluators";
 import { getContent, assetFiles, bundledFiles } from "@/content";
 import { listMedia, contentTypeOf, blobToken } from "@/lib/media";
 
@@ -25,7 +25,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ path: string[] 
     const content = await getContent(slug, elig.attempt.version ?? 0);
     allowed = Boolean(content && assetFiles(content).has(file));
   }
-  if (!allowed) allowed = await isEvaluator(user.email);
+  if (!allowed) allowed = (await isEvaluator(user.email)) || (await canViewQuestions(user.email));
   if (!allowed) return new Response("Forbidden", { status: 403 });
 
   const baseHeaders: Record<string, string> = {

@@ -81,7 +81,20 @@ Set `DEMO_MODE` to `false`, redeploy, and put the link into the Salesforce email
 ---
 
 ## Changing questions (question bank)
-Questions live in the **Questions** tab of the results Sheet. They're published from the dashboard: **Dashboard → Questions & media**.
+Questions live in the **Questions** tab of a separate **questions Sheet**. They're published from the dashboard: **Dashboard → Questions & media**.
+
+**Setting up the questions Sheet (one time):**
+1. Create a new Google Sheet, e.g. "Skills Assessment Questions".
+2. Paste the same `apps-script/Code.gs` into it, with the same password, and run **authorize**.
+3. **Deploy → New deployment → Web app** (Execute as: Me; Who has access: Anyone). Copy the URL.
+4. In Vercel, add `QUESTIONS_WEBHOOK_URL` with that URL, then redeploy.
+
+The questions Sheet's sharing controls the question bank:
+- **Anyone it's shared with** can check and preview. Preview shows the answer key.
+- **Its editors** can publish and upload images and videos.
+
+Results-Sheet evaluators don't see the answer key unless the questions Sheet is shared with them too.
+Without `QUESTIONS_WEBHOOK_URL`, the Questions tab lives in the results Sheet instead.
 
 1. The first time, click **Check the Questions tab → Create the Questions tab**. This fills the tab with the live questions.
 2. Edit the tab. Use one row per question, in the order candidates should see them:
@@ -98,7 +111,7 @@ Questions live in the **Questions** tab of the results Sheet. They're published 
 
 3. Upload any new images or videos on the same page, then use their file names in **Section Media**.
 4. Click **Check again**. Every row is checked, and problems are listed with their row number. Use **Preview** to review an assessment the way candidates will see it, with the correct answers marked.
-5. Click **Publish** for each assessment you changed. Only people who can **edit** the Sheet can publish or upload.
+5. Click **Publish** for each assessment you changed. Only people who can **edit** the questions Sheet can publish or upload.
 
 Each publish creates a new **question set version** (v1, v2, …; v0 is the original built-in Medical Biller set):
 - Candidates who start after publishing get the new version.

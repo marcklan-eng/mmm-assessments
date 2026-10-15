@@ -1,19 +1,24 @@
 import { NextResponse } from "next/server";
 import { currentUser, type SessionUser } from "./auth";
-import { isEditor, isEvaluator } from "./evaluators";
+import { canViewQuestions, isEditor, isEvaluator } from "./evaluators";
 import { HttpError } from "./attempts";
 
-/** Runs fn for evaluators (Sheet shared with them) — or only editors when editorOnly. */
-export async function withEvaluator(fn: (u: SessionUser) => Promise<unknown>, editorOnly = false) {
+/** Who may call: "results" = results Sheet shared with them (dashboard); "questions" = questions Sheet
+ *  shared with them; "editor" = can edit the questions Sheet (publish/upload). */
+export async function withEvaluator(fn: (u: SessionUser) => Promise<unknown>, role: "results" | "questions" | "editor" = "results") {
   try {
     const user = await currentUser();
     if (!user) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
-    const ok = editorOnly ? await isEditor(user.email) : await isEvaluator(user.email);
+    const ok =
+      role === "editor" ? await isEditor(user.email) : role === "questions" ? await canViewQuestions(user.email) : await isEvaluator(user.email);
     if (!ok) {
-      return NextResponse.json(
-        { error: editorOnly ? "Only people who can edit the results Sheet can do this." : "No dashboard access." },
-        { status: 403 },
-      );
+      const msg =
+        role === "editor"
+          ? "Only people who can edit the questions Sheet can do this."
+          : role === "questions"
+            ? "Ask to have the questions Sheet shared with you."
+            : "No dashboard access.";
+      return NextResponse.json({ error: msg }, { status: 403 });
     }
     const out = await fn(user);
     return out instanceof Response ? out : NextResponse.json(out ?? { ok: true });

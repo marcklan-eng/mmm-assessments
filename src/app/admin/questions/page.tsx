@@ -2,8 +2,9 @@ import Link from "next/link";
 import "../admin.css";
 import TopBar from "@/components/TopBar";
 import AdminGate from "@/components/AdminGate";
+import { canViewQuestions, isEditor } from "@/lib/evaluators";
+import { questionsSeparate } from "@/lib/google";
 import QuestionsManager from "@/components/QuestionsManager";
-import { isEditor } from "@/lib/evaluators";
 import { ASSESSMENTS } from "@/content/assessments";
 import { getContent, allQuestions } from "@/content";
 
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function QuestionsPage() {
   return (
-    <AdminGate path="/admin/questions">
+    <AdminGate path="/admin/questions" access="questions">
       {async (user) => {
         const canEdit = await isEditor(user.email);
         const live = await Promise.all(
@@ -35,13 +36,13 @@ export default async function QuestionsPage() {
               <p className="eyebrow" style={{ marginTop: 12 }}>Question bank</p>
               <h1>Questions &amp; media</h1>
               <p className="muted" style={{ maxWidth: 760 }}>
-                Edit questions in the <b>Questions</b> tab of the results Sheet, then check and publish them here. Publishing creates a new
+                Edit questions in the <b>Questions</b> tab of the {questionsSeparate ? "questions" : "results"} Sheet, then check and publish them here. Publishing creates a new
                 question-set version: candidates who start after that get the new questions, while attempts in progress and past results
                 keep the version they were taken on.
               </p>
               {!canEdit && (
                 <div className="notice notice-info small" style={{ marginBottom: 14 }}>
-                  You can check and preview. Publishing and uploading are limited to people who can <b>edit</b> the results Sheet.
+                  You can check and preview. Publishing and uploading are limited to people who can <b>edit</b> the {questionsSeparate ? "questions" : "results"} Sheet.
                 </div>
               )}
               <QuestionsManager canEdit={canEdit} live={live} />
