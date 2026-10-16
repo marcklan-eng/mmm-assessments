@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import AzureADProvider from "next-auth/providers/azure-ad";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { db } from "./db";
 
 export const DEMO_MODE = process.env.DEMO_MODE === "true";
 
@@ -58,6 +59,19 @@ if (DEMO_MODE) {
 
 export const authOptions: NextAuthOptions = {
   providers,
+  // Keep the last sign-in error (no secrets) so /api/health can show what went wrong.
+  logger: {
+    error(code, metadata) {
+      console.error("[auth]", code, metadata);
+      const m = metadata as { error?: { message?: string }; message?: string } | undefined;
+      const detail = String(m?.error?.message ?? m?.message ?? "").slice(0, 300);
+      db.setJSON("auth:lastError", { code, detail, at: new Date().toISOString() }).catch(() => {});
+    },
+    warn(code) {
+      console.warn("[auth]", code);
+    },
+    debug() {},
+  },
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt", maxAge: 60 * 60 * 8 },
   pages: { signIn: "/signin" },
@@ -118,6 +132,7 @@ export function googleClientCheck() {
   if (!id.endsWith(".apps.googleusercontent.com")) notes.push("should end with .apps.googleusercontent.com");
   if (id.startsWith("GOCSPX")) notes.push("this looks like the Client SECRET, not the Client ID");
   if (!GOOGLE_SECRET) notes.push("GOOGLE_CLIENT_SECRET missing");
+  else notes.push(`secret ${GOOGLE_SECRET.length} chars`);
   else if (!GOOGLE_SECRET.startsWith("GOCSPX-")) notes.push("GOOGLE_CLIENT_SECRET usually starts with GOCSPX-");
   return `${id.slice(0, 16)}…${id.slice(-30)} (${id.length} chars)${notes.length ? " — " + notes.join("; ") : ""}`;
 }

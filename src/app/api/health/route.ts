@@ -43,6 +43,7 @@ export async function GET() {
     otherRedisVars: Object.keys(process.env).filter((k) => /REDIS|KV_/.test(k)),
     googleSignIn: enabledProviders.google,
     googleClientId: googleClientCheck(),
+    lastSignInError: await db.getJSON("auth:lastError"),
     microsoftSignIn: enabledProviders.microsoft,
     googleSheet,
     questionsSheet,
