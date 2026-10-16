@@ -132,7 +132,9 @@ export function googleClientCheck() {
   if (!id.endsWith(".apps.googleusercontent.com")) notes.push("should end with .apps.googleusercontent.com");
   if (id.startsWith("GOCSPX")) notes.push("this looks like the Client SECRET, not the Client ID");
   if (!GOOGLE_SECRET) notes.push("GOOGLE_CLIENT_SECRET missing");
-  else notes.push(`secret ${GOOGLE_SECRET.length} chars`);
-  else if (!GOOGLE_SECRET.startsWith("GOCSPX-")) notes.push("GOOGLE_CLIENT_SECRET usually starts with GOCSPX-");
+  else {
+    notes.push(`secret ${GOOGLE_SECRET.length} chars`);
+    if (!GOOGLE_SECRET.startsWith("GOCSPX-")) notes.push("GOOGLE_CLIENT_SECRET usually starts with GOCSPX-");
+  }
   return `${id.slice(0, 16)}…${id.slice(-30)} (${id.length} chars)${notes.length ? " — " + notes.join("; ") : ""}`;
 }
