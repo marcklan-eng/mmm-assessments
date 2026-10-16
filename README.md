@@ -81,7 +81,7 @@ Set `DEMO_MODE` to `false`, redeploy, and put the link into the Salesforce email
 ---
 
 ## Changing questions (question bank)
-Questions live in the **Questions** tab of a separate **questions Sheet**. They're published from the dashboard: **Dashboard → Questions & media**.
+Questions live in a separate **questions Sheet**, with **one tab per assessment**, named exactly like the assessment (e.g. `Medical Biller`, `Advanced RCM`). They're published from the dashboard: **Dashboard → Questions & media**.
 
 **Setting up the questions Sheet (one time):**
 1. Create a new Google Sheet, e.g. "Skills Assessment Questions".
@@ -96,8 +96,8 @@ The questions Sheet's sharing controls the question bank:
 Results-Sheet evaluators don't see the answer key unless the questions Sheet is shared with them too.
 Without `QUESTIONS_WEBHOOK_URL`, the Questions tab lives in the results Sheet instead.
 
-1. The first time, click **Check the Questions tab → Create the Questions tab**. This fills the tab with the live questions.
-2. Edit the tab. Use one row per question, in the order candidates should see them:
+1. The first time, click **Check the questions Sheet → Fill in the live questions**. This fills each assessment's tab with the questions that are live now.
+2. Edit the tabs. Use one row per question, in the order candidates should see them. The Assessment column is only needed if you use a single combined `Questions` tab instead:
 
 | Column | What goes in it |
 |---|---|

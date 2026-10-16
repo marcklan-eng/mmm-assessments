@@ -107,16 +107,19 @@ export async function questionsEditorEmails(): Promise<Set<string>> {
 /** Link to the questions Sheet (learned from the script). */
 export let sheetUrl: string | null = null;
 
-/** Rows of the "Questions" tab as displayed text (null if the tab doesn't exist). */
-export async function readQuestionRows(): Promise<string[][] | null> {
-  const r = await callTarget<{ rows: string[][] | null; url?: string }>(QUESTIONS, "readQuestions");
+export type QuestionTab = { name: string; rows: string[][] };
+
+/** Every tab of the questions Sheet as displayed text (one tab per assessment, and/or a "Questions" tab). */
+export async function readQuestionTabs(): Promise<QuestionTab[]> {
+  const r = await callTarget<{ tabs?: QuestionTab[]; rows?: string[][] | null; url?: string }>(QUESTIONS, "readQuestions");
   if (r.url) sheetUrl = r.url;
-  return r.rows;
+  if (r.tabs) return r.tabs;
+  return r.rows ? [{ name: "Questions", rows: r.rows }] : []; // older script: only the Questions tab
 }
 
-/** Creates the Questions tab with these rows. Refuses if it already has content. */
-export async function seedQuestionRows(rows: string[][]): Promise<{ created: boolean; reason?: string }> {
-  return callTarget<{ created: boolean; reason?: string }>(QUESTIONS, "seedQuestions", { rows });
+/** Fills empty assessment tabs (creating them if needed). Tabs that already have content are left alone. */
+export async function seedQuestionTabs(tabs: QuestionTab[]): Promise<{ created: string[]; skipped: string[] }> {
+  return callTarget<{ created: string[]; skipped: string[] }>(QUESTIONS, "seedQuestions", { tabs });
 }
 
 // ---------- Results rows ----------

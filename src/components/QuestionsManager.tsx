@@ -43,8 +43,12 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
     setBusy(true);
     setErr("");
     try {
-      const r = await api<{ created: boolean; reason?: string }>("/api/admin/questions/seed", { method: "POST" });
-      setMsg(r.created ? "Created the Questions tab with the live questions. Open the Sheet to edit them." : r.reason || "The Questions tab already exists.");
+      const r = await api<{ created: string[]; skipped: string[] }>("/api/admin/questions/seed", { method: "POST" });
+      setMsg(
+        r.created.length
+          ? `Filled in the ${r.created.join(", ")} tab${r.created.length === 1 ? "" : "s"} with the live questions. Open the Sheet to edit them.`
+          : `Nothing to fill in: ${r.skipped.join(", ")} already ${r.skipped.length === 1 ? "has" : "have"} content.`,
+      );
       await runCheck();
     } catch (e) {
       setErr((e as Error).message);
@@ -103,31 +107,31 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
       <div className="panel section-gap">
         <div className="dash-head">
           <div>
-            <h2>Check the Questions tab</h2>
+            <h2>Check the questions Sheet</h2>
             <p className="sub">Reads the Sheet, checks every row and shows what would change. Nothing goes live until you publish.</p>
           </div>
-          <button className="btn btn-primary" onClick={runCheck} disabled={checking}>{checking ? "Checking…" : check ? "Check again" : "Check the Questions tab"}</button>
+          <button className="btn btn-primary" onClick={runCheck} disabled={checking}>{checking ? "Checking…" : check ? "Check again" : "Check the questions Sheet"}</button>
         </div>
 
         {check && !check.tab && (
           <div className="notice notice-info" style={{ marginTop: 12 }}>
             <p style={{ margin: "0 0 10px" }}>
-              There’s no <b>Questions</b> tab in the results Sheet yet. Create it filled with the questions that are live now, then edit it
-              in the Sheet.
+              The questions Sheet doesn’t have any questions yet. Fill in each assessment’s tab with the questions that are live now
+              (tabs are named after the assessment, e.g. <b>Medical Biller</b>), then edit them in the Sheet.
             </p>
-            <button className="btn btn-primary" onClick={seed} disabled={!canEdit || busy}>{busy ? "Creating…" : "Create the Questions tab"}</button>
+            <button className="btn btn-primary" onClick={seed} disabled={!canEdit || busy}>{busy ? "Filling in…" : "Fill in the live questions"}</button>
           </div>
         )}
 
         {checkData && checkData.errors.length > 0 && (
           <div className="notice notice-bad small" style={{ marginTop: 12 }}>
-            <b>Rows that couldn’t be read:</b>
-            <ul className="clean" style={{ margin: "6px 0 0" }}>{checkData.errors.map((e, i) => <li key={i}>{e.row ? `Row ${e.row}: ` : ""}{e.message}</li>)}</ul>
+            <b>Couldn’t read:</b>
+            <ul className="clean" style={{ margin: "6px 0 0" }}>{checkData.errors.map((e, i) => <li key={i}>{where(e)}{e.message}</li>)}</ul>
           </div>
         )}
 
         {checkData && checkData.assessments.length === 0 && checkData.errors.length === 0 && (
-          <p className="muted" style={{ marginTop: 12 }}>The Questions tab has no question rows yet.</p>
+          <p className="muted" style={{ marginTop: 12 }}>The questions Sheet has no question rows yet.</p>
         )}
 
         {checkData && checkData.assessments.map((a) => {
@@ -154,10 +158,10 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
                 </div>
               </div>
               {a.errors.length > 0 && (
-                <ul className="clean small qb-issues bad">{a.errors.map((e, i) => <li key={i}>{e.row ? `Row ${e.row}: ` : ""}{e.message}</li>)}</ul>
+                <ul className="clean small qb-issues bad">{a.errors.map((e, i) => <li key={i}>{where(e)}{e.message}</li>)}</ul>
               )}
               {a.warnings.length > 0 && (
-                <ul className="clean small qb-issues warn">{a.warnings.map((e, i) => <li key={i}>{e.row ? `Row ${e.row}: ` : ""}{e.message}</li>)}</ul>
+                <ul className="clean small qb-issues warn">{a.warnings.map((e, i) => <li key={i}>{where(e)}{e.message}</li>)}</ul>
               )}
               {preview === a.slug && <Preview a={a} />}
             </div>
@@ -184,6 +188,10 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
       )}
     </>
   );
+}
+
+function where(e: { row: number; where?: string }) {
+  return e.where ? `${e.where}: ` : e.row ? `Row ${e.row}: ` : "";
 }
 
 function Preview({ a }: { a: ParsedAssessment }) {

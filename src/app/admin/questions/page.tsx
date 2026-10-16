@@ -36,7 +36,7 @@ export default async function QuestionsPage() {
               <p className="eyebrow" style={{ marginTop: 12 }}>Question bank</p>
               <h1>Questions &amp; media</h1>
               <p className="muted" style={{ maxWidth: 760 }}>
-                Edit questions in the <b>Questions</b> tab of the {questionsSeparate ? "questions" : "results"} Sheet, then check and publish them here. Publishing creates a new
+                Edit questions in the {questionsSeparate ? "questions" : "results"} Sheet, in the tab named after each assessment (e.g. <b>Advanced RCM</b>), then check and publish them here. Publishing creates a new
                 question-set version: candidates who start after that get the new questions, while attempts in progress and past results
                 keep the version they were taken on.
               </p>

@@ -14,8 +14,8 @@
  *     summary on the FIRST tab: one row per candidate, one column per assessment, holding the score.
  *   - "sharedEmails": returns everyone the Sheet is shared with by email (dashboard access) and the editors
  *     (who can publish questions)
- *   - "readQuestions": returns the "Questions" tab as displayed text (the question bank)
- *   - "seedQuestions": creates the "Questions" tab, filled with the questions that are live now
+ *   - "readQuestions": returns every tab as displayed text (questions Sheet: one tab per assessment)
+ *   - "seedQuestions": fills each assessment's tab with the questions that are live now
  *   - "ping": connection test
  * Run rebuildSummary() from the editor any time to rebuild the summary tab from all assessment tabs.
  */
@@ -30,7 +30,7 @@ const BASE_HEADERS = [
   'Retake After', 'Attempt ID', 'Question Set',
 ];
 const QUESTIONS_TAB = 'Questions';
-const SCRIPT_VERSION = 2; // the app checks this to know which features the script supports
+const SCRIPT_VERSION = 3; // the app checks this to know which features the script supports
 
 // Assessment columns on the summary tab, in this order (missing ones are added automatically).
 const ASSESSMENTS = [
@@ -61,31 +61,28 @@ function doPost(e) {
     }
 
     if (body.action === 'readQuestions') {
-      const qs = ss.getSheetByName(QUESTIONS_TAB);
-      if (!qs || qs.getLastRow() === 0) return reply({ ok: true, rows: null, url: ss.getUrl() });
-      // Display values keep numbers exactly as shown (e.g. 1.50 stays "1.50").
-      const rows = qs.getRange(1, 1, qs.getLastRow(), Math.max(qs.getLastColumn(), 1)).getDisplayValues();
-      return reply({ ok: true, rows: rows, url: ss.getUrl() });
+      // Every tab as displayed text (display values keep e.g. 1.50 and 015814 exactly as shown).
+      // The app uses the tabs named after an assessment (and a "Questions" tab, if there is one).
+      const tabs = ss.getSheets().map(function (sh) {
+        const lastRow = sh.getLastRow();
+        const lastCol = sh.getLastColumn();
+        return { name: sh.getName(), rows: lastRow && lastCol ? sh.getRange(1, 1, lastRow, lastCol).getDisplayValues() : [] };
+      });
+      const q = tabs.filter(function (t) { return t.name === QUESTIONS_TAB; })[0];
+      return reply({ ok: true, tabs: tabs, rows: q && q.rows.length ? q.rows : null, url: ss.getUrl() });
     }
 
     if (body.action === 'seedQuestions') {
-      let qs = ss.getSheetByName(QUESTIONS_TAB);
-      if (qs && qs.getLastRow() > 0) return reply({ ok: true, created: false, reason: 'The Questions tab already has content, so it was left as is.' });
-      if (!qs) qs = ss.insertSheet(QUESTIONS_TAB);
-      const rows = body.rows;
-      const width = rows[0].length;
-      const range = qs.getRange(1, 1, rows.length, width);
-      range.setNumberFormat('@'); // plain text, so answers like 1.50 aren't turned into numbers
-      range.setValues(rows.map(function (r) { return r.map(function (v) { return String(v); }); }));
-      range.setWrap(true).setVerticalAlignment('top');
-      qs.getRange(1, 1, 1, width).setFontWeight('bold').setBackground('#e3f0f2');
-      qs.setFrozenRows(1);
-      qs.setColumnWidth(1, 150); qs.setColumnWidth(2, 160); qs.setColumnWidth(3, 260); qs.setColumnWidth(4, 260);
-      qs.setColumnWidth(5, 380);
-      for (let c = 6; c <= 11; c++) qs.setColumnWidth(c, 200);
-      qs.setColumnWidth(12, 80);
-      qs.getRange(2, 1, Math.max(qs.getMaxRows() - 1, 1), width).setNumberFormat('@');
-      return reply({ ok: true, created: true });
+      // Fills each assessment's tab (creating it if needed). Tabs that already have content are left alone.
+      const created = [], skipped = [];
+      (body.tabs || []).forEach(function (t) {
+        let sh = ss.getSheetByName(t.name);
+        if (sh && sh.getLastRow() > 0) { skipped.push(t.name); return; }
+        if (!sh) sh = ss.insertSheet(t.name);
+        writeQuestionTab(sh, t.rows);
+        created.push(t.name);
+      });
+      return reply({ ok: true, created: created, skipped: skipped });
     }
 
     if (body.action === 'append') {
@@ -111,6 +108,19 @@ function doPost(e) {
   } catch (err) {
     return reply({ ok: false, error: String(err && err.message ? err.message : err) });
   }
+}
+
+/** Writes question rows as plain text (so answers like 1.50 or 015814 aren't turned into numbers) and formats the tab. */
+function writeQuestionTab(sh, rows) {
+  const width = rows[0].length;
+  sh.getRange(1, 1, Math.max(sh.getMaxRows(), rows.length), width).setNumberFormat('@');
+  const range = sh.getRange(1, 1, rows.length, width);
+  range.setValues(rows.map(function (r) { return r.map(function (v) { return String(v); }); }));
+  range.setWrap(true).setVerticalAlignment('top');
+  sh.getRange(1, 1, 1, width).setFontWeight('bold').setBackground('#e3f0f2');
+  sh.setFrozenRows(1);
+  const widths = [160, 260, 260, 380, 200, 200, 200, 200, 120, 120, 80, 260];
+  for (let c = 1; c <= Math.min(width, widths.length); c++) sh.setColumnWidth(c, widths[c - 1]);
 }
 
 function doGet() {

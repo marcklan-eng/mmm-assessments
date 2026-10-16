@@ -1,7 +1,8 @@
-// Turns the "Questions" tab of the results Sheet into question sets, with row-by-row checks.
+// Turns the questions Sheet into question sets, with row-by-row checks.
 //
-// Questions tab columns (header names, any order):
-//   Assessment | Section | Section Description | Section Media | Question | A | B | C | D | E | F | Correct
+// The Sheet has one tab per assessment, named exactly like the assessment (e.g. "Advanced RCM"),
+// and/or a single "Questions" tab with an Assessment column. Columns (header names, any order):
+//   [Assessment] | Section | Section Description | Section Media | Question | A | B | C | D | E | F | Correct | Rows
 // - One row per question, in the order candidates will see them.
 // - Section / Section Description / Section Media only need to be filled on a section's first row.
 // - Section Media: one file per line, as "file-name.png | Caption" (the caption is optional).
@@ -30,7 +31,7 @@ export const QUESTION_HEADERS = [
 ];
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
-export type Issue = { row: number; message: string };
+export type Issue = { row: number; message: string; where?: string };
 export type ParsedAssessment = {
   slug: string;
   title: string;
@@ -75,7 +76,50 @@ function fingerprint(c: AssessmentContent) {
   return JSON.stringify(c.sections.map((s) => [s.title, s.description, s.stimuli, s.questions.map((q) => [q.prompt, q.options, q.rows ?? null, q.answer])]));
 }
 
-export async function parseQuestionRows(rows: string[][]): Promise<ParseResult> {
+/** Header for a per-assessment tab (no Assessment column needed). */
+export const TAB_HEADERS = QUESTION_HEADERS.filter((h) => h !== "Assessment");
+
+/** Combines the Sheet's tabs into one table with the standard columns, remembering where each row came from. */
+export function combineTabs(tabs: { name: string; rows: string[][] }[]): { rows: string[][]; labels: string[]; errors: Issue[] } {
+  const rows: string[][] = [QUESTION_HEADERS];
+  const labels: string[] = [];
+  const errors: Issue[] = [];
+  for (const t of tabs) {
+    const data = t.rows.slice(1).filter((r) => r.some((v) => String(v ?? "").trim()));
+    if (!t.rows.length || !data.length) continue;
+    const meta = ASSESSMENTS.find((a) => norm(a.title) === norm(t.name));
+    const isQuestionsTab = norm(t.name) === "questions";
+    if (!meta && !isQuestionsTab) {
+      errors.push({ row: 0, message: `Tab "${t.name}" doesn't match an assessment name, so it was skipped. Rename it to one of: ${ASSESSMENTS.map((a) => a.title).join(", ")}.` });
+      continue;
+    }
+    const header = t.rows[0].map((h) => norm(String(h ?? "")));
+    for (const h of ["Section", "Question", "A", "B", "Correct"]) {
+      if (!header.includes(h.toLowerCase())) errors.push({ row: 1, where: `${t.name} tab`, message: `Missing column "${h}" in row 1.` });
+    }
+    t.rows.slice(1).forEach((r, i) => {
+      if (!r.some((v) => String(v ?? "").trim())) return;
+      rows.push(
+        QUESTION_HEADERS.map((h) => {
+          if (h === "Assessment" && meta) return meta.title;
+          const k = header.indexOf(h.toLowerCase());
+          return k === -1 ? "" : String(r[k] ?? "");
+        }),
+      );
+      labels.push(`${t.name} tab, row ${i + 2}`);
+    });
+  }
+  return { rows, labels, errors };
+}
+
+export async function parseQuestionTabs(tabs: { name: string; rows: string[][] }[]): Promise<ParseResult> {
+  const c = combineTabs(tabs);
+  if (c.rows.length === 1) return { assessments: [], errors: c.errors };
+  const r = await parseQuestionRows(c.rows, c.labels);
+  return { ...r, errors: [...c.errors, ...r.errors] };
+}
+
+export async function parseQuestionRows(rows: string[][], labels?: string[]): Promise<ParseResult> {
   const errors: Issue[] = [];
   if (!rows.length) return { assessments: [], errors: [{ row: 1, message: "The Questions tab is empty." }] };
 
@@ -96,6 +140,7 @@ export async function parseQuestionRows(rows: string[][]): Promise<ParseResult> 
   let lastAssessment = "";
   let lastSection = "";
 
+  const whereOf = (rowNum: number) => labels?.[rowNum - 2];
   rows.slice(1).forEach((r, i) => {
     const rowNum = i + 2;
     if (r.every((v) => !String(v ?? "").trim())) return; // blank row
@@ -103,7 +148,7 @@ export async function parseQuestionRows(rows: string[][]): Promise<ParseResult> 
     const aName = cell(r, "Assessment") || lastAssessment;
     const meta = ASSESSMENTS.find((a) => norm(a.title) === norm(aName));
     if (!meta) {
-      errors.push({ row: rowNum, message: aName ? `Unknown assessment "${aName}". Use one of: ${ASSESSMENTS.map((a) => a.title).join(", ")}.` : "Assessment is blank." });
+      errors.push({ row: rowNum, where: whereOf(rowNum), message: aName ? `Unknown assessment "${aName}". Use one of: ${ASSESSMENTS.map((a) => a.title).join(", ")}.` : "Assessment is blank." });
       return;
     }
     if (norm(aName) !== norm(lastAssessment)) lastSection = "";
@@ -117,14 +162,14 @@ export async function parseQuestionRows(rows: string[][]): Promise<ParseResult> 
 
     const sName = cell(r, "Section") || lastSection;
     if (!sName) {
-      d.errors.push({ row: rowNum, message: "Section is blank." });
+      d.errors.push({ row: rowNum, where: whereOf(rowNum), message: "Section is blank." });
       return;
     }
     lastSection = sName;
     let section = d.sections[d.sections.length - 1];
     if (!section || norm(section.title) !== norm(sName)) {
       if (d.sections.some((s) => norm(s.title) === norm(sName))) {
-        d.warnings.push({ row: rowNum, message: `Section "${sName}" appears again after another section; it will show as a separate page.` });
+        d.warnings.push({ row: rowNum, where: whereOf(rowNum), message: `Section "${sName}" appears again after another section; it will show as a separate page.` });
       }
       section = { id: `s${d.sections.length + 1}`, title: sName, description: "", stimuli: [], questions: [] };
       d.sections.push(section);
@@ -137,33 +182,33 @@ export async function parseQuestionRows(rows: string[][]): Promise<ParseResult> 
     const prompt = cell(r, "Question");
     if (!prompt) {
       // a row with only section info is fine
-      if (!desc && !media) d.errors.push({ row: rowNum, message: "Question is blank." });
+      if (!desc && !media) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: "Question is blank." });
       return;
     }
     const choices = LETTERS.map((L) => ({ letter: L, text: cell(r, L) }));
     const lastFilled = Math.max(...choices.map((c, k) => (c.text ? k : -1)));
     const gap = choices.slice(0, lastFilled + 1).find((c) => !c.text);
-    if (gap) d.errors.push({ row: rowNum, message: `Choice ${gap.letter} is blank but a later choice is filled.` });
+    if (gap) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `Choice ${gap.letter} is blank but a later choice is filled.` });
     const filled = choices.filter((c) => c.text);
-    if (filled.length < 2) d.errors.push({ row: rowNum, message: "A question needs at least 2 choices (A and B)." });
+    if (filled.length < 2) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: "A question needs at least 2 choices (A and B)." });
 
     const gridRows = cell(r, "Rows").split("\n").map((x) => x.trim()).filter(Boolean);
     const correct = cell(r, "Correct").toUpperCase().replace(/[^A-F]/g, "");
-    if (!correct) d.errors.push({ row: rowNum, message: "Correct is blank. Enter the letter of the right choice (A–F)." });
+    if (!correct) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: "Correct is blank. Enter the letter of the right choice (A–F)." });
     else if (gridRows.length) {
-      if (gridRows.length < 2) d.errors.push({ row: rowNum, message: "A matching grid needs at least 2 rows (one per line in the Rows cell)." });
+      if (gridRows.length < 2) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: "A matching grid needs at least 2 rows (one per line in the Rows cell)." });
       if (correct.length !== gridRows.length) {
-        d.errors.push({ row: rowNum, message: `This grid has ${gridRows.length} rows, so Correct needs ${gridRows.length} letters (one per row, e.g. "A, B"), not "${cell(r, "Correct")}".` });
+        d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `This grid has ${gridRows.length} rows, so Correct needs ${gridRows.length} letters (one per row, e.g. "A, B"), not "${cell(r, "Correct")}".` });
       } else {
         const bad = [...correct].find((L) => !filled.some((c) => c.letter === L));
-        if (bad) d.errors.push({ row: rowNum, message: `Correct uses ${bad}, but choice ${bad} is blank.` });
+        if (bad) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `Correct uses ${bad}, but choice ${bad} is blank.` });
       }
-    } else if (correct.length > 1) d.errors.push({ row: rowNum, message: `Correct should be one letter, not "${cell(r, "Correct")}".` });
-    else if (!filled.some((c) => c.letter === correct)) d.errors.push({ row: rowNum, message: `Correct is ${correct}, but choice ${correct} is blank.` });
+    } else if (correct.length > 1) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `Correct should be one letter, not "${cell(r, "Correct")}".` });
+    else if (!filled.some((c) => c.letter === correct)) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `Correct is ${correct}, but choice ${correct} is blank.` });
 
     const texts = filled.map((c) => norm(c.text));
-    if (new Set(texts).size !== texts.length) d.warnings.push({ row: rowNum, message: "Two choices have the same text." });
-    if (d.seen.has(norm(prompt))) d.warnings.push({ row: rowNum, message: "This question text appears more than once." });
+    if (new Set(texts).size !== texts.length) d.warnings.push({ row: rowNum, where: whereOf(rowNum), message: "Two choices have the same text." });
+    if (d.seen.has(norm(prompt))) d.warnings.push({ row: rowNum, where: whereOf(rowNum), message: "This question text appears more than once." });
     d.seen.add(norm(prompt));
 
     const n = d.sections.reduce((t, s) => t + s.questions.length, 0) + 1;
@@ -207,18 +252,19 @@ export async function parseQuestionRows(rows: string[][]): Promise<ParseResult> 
   return { assessments, errors };
 }
 
-/** Rows for a fresh Questions tab, filled from what's live now. */
-export async function seedRows(): Promise<string[][]> {
-  const rows: string[][] = [QUESTION_HEADERS];
+/** One tab per assessment that has live questions, filled from what's live now. */
+export async function seedTabs(): Promise<{ name: string; rows: string[][] }[]> {
+  const tabs: { name: string; rows: string[][] }[] = [];
   for (const meta of ASSESSMENTS) {
     const c: QuestionSet | undefined = await getContent(meta.slug);
     if (!c) continue;
+    const rows: string[][] = [TAB_HEADERS];
+    tabs.push({ name: meta.title, rows });
     for (const s of c.sections) {
       s.questions.forEach((q, i) => {
         const first = i === 0;
         const letters = q.options.map((o) => o.id.toUpperCase());
         rows.push([
-          meta.title,
           s.title,
           first ? s.description ?? "" : "",
           first ? (s.stimuli ?? []).map((st) => `${st.file} | ${st.caption}`).join("\n") : "",
@@ -230,5 +276,5 @@ export async function seedRows(): Promise<string[][]> {
       });
     }
   }
-  return rows;
+  return tabs;
 }
