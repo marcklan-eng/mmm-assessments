@@ -108,6 +108,7 @@ Without `QUESTIONS_WEBHOOK_URL`, the Questions tab lives in the results Sheet in
 | Question | The question text |
 | A – F | The choices. At least A and B; leave the unused ones blank |
 | Correct | The letter of the correct choice |
+| Rows | Optional. Makes a **matching grid**: one item per line. Candidates pick one choice (A–F) for each row, and Correct lists one letter per row, e.g. `A, B`. It's worth 1 point, all rows must be right |
 
 3. Upload any new images or videos on the same page, then use their file names in **Section Media**.
 4. Click **Check again**. Every row is checked, and problems are listed with their row number. Use **Preview** to review an assessment the way candidates will see it, with the correct answers marked.

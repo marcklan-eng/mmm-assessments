@@ -9,6 +9,7 @@ import { getMeta } from "@/content/assessments";
 import { getContent } from "@/content";
 import { fmtDuration } from "@/lib/google";
 import { ACTIVITY_LABELS } from "@/lib/types";
+import { answerText } from "@/content/answers";
 
 export const dynamic = "force-dynamic";
 const dt = (ms?: number) => (ms ? new Date(ms).toLocaleString("en-US") : "—");
@@ -82,8 +83,8 @@ export default async function AttemptDetail({ params }: { params: Promise<{ id: 
                               <div>{q.prompt}</div>
                               <div className="small" style={{ marginTop: 4 }}>
                                 {!chosen ? <span className="pill pill-warn">Blank</span> : ok ? <span className="pill pill-good">✓ Correct</span> : <span className="pill pill-bad">✗ Incorrect</span>}{" "}
-                                {chosen && <span>Chose: {q.options.find((o) => o.id === chosen)?.text}</span>}
-                                {!ok && <div className="muted">Correct: {q.options.find((o) => o.id === q.answer)?.text}</div>}
+                                {chosen && <span>Chose: {answerText(q, chosen)}</span>}
+                                {!ok && <div className="muted">Correct: {answerText(q, q.answer)}</div>}
                               </div>
                             </td>
                           </tr>

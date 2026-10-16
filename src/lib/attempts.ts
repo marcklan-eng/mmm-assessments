@@ -98,8 +98,13 @@ export async function saveAnswer(a: Attempt, questionId: string, optionId: strin
   const content = (await getContent(a.slug, a.version ?? 0))!;
   const q = allQuestions(content).find((x) => x.id === questionId);
   if (!q) throw new HttpError(400, "Unknown question");
+  const valid = (id: string) => q.options.some((o) => o.id === id);
   if (optionId === null) delete a.answers[questionId];
-  else if (q.options.some((o) => o.id === optionId)) a.answers[questionId] = optionId;
+  else if (q.rows?.length) {
+    const parts = optionId.split(",");
+    if (parts.length !== q.rows.length || parts.some((p) => p && !valid(p))) throw new HttpError(400, "Unknown option");
+    a.answers[questionId] = optionId;
+  } else if (valid(optionId)) a.answers[questionId] = optionId;
   else throw new HttpError(400, "Unknown option");
   await db.saveAttempt(a);
 }
@@ -190,7 +195,7 @@ export async function publicView(a: Attempt) {
           const q = byId.get(qid)!;
           const opts = a.optionOrder[qid].map((oid) => q.options.find((x) => x.id === oid)!);
           n += 1;
-          return { id: q.id, number: n, prompt: q.prompt, options: opts };
+          return { id: q.id, number: n, prompt: q.prompt, options: opts, rows: q.rows ?? null };
         }),
       };
     }),

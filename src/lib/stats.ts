@@ -1,5 +1,6 @@
 import type { Attempt } from "./types";
 import { allQuestions, type QuestionSet } from "@/content";
+import { answerText, isAnswered } from "@/content/answers";
 
 export type Filters = {
   assessment: string; // slug or "all"
@@ -100,7 +101,7 @@ export function questionStats(list: Attempt[], content: QuestionSet) {
       let blank = 0;
       for (const a of done) {
         const c = a.answers[q.id];
-        if (!c) { blank++; wrong++; continue; }
+        if (!isAnswered(q, c)) { blank++; wrong++; continue; }
         counts[c] = (counts[c] ?? 0) + 1;
         if (c !== q.answer) wrong++;
       }
@@ -113,11 +114,11 @@ export function questionStats(list: Attempt[], content: QuestionSet) {
         id: q.id,
         section: section.title,
         prompt: q.prompt,
-        correct: q.options.find((o) => o.id === q.answer)?.text ?? "",
+        correct: answerText(q, q.answer),
         takers: done.length,
         wrongPct: done.length ? (wrong / done.length) * 100 : 0,
         blank,
-        topWrong: topWrong ? { text: q.options.find((o) => o.id === topWrong[0])?.text ?? "", pct: (topWrong[1] / done.length) * 100 } : null,
+        topWrong: topWrong ? { text: answerText(q, topWrong[0]), pct: (topWrong[1] / done.length) * 100 } : null,
       };
     })
     .sort((a, b) => b.wrongPct - a.wrongPct || a.number - b.number);

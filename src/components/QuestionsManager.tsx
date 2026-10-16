@@ -214,13 +214,34 @@ function Preview({ a }: { a: ParsedAssessment }) {
             return (
               <div key={q.id} className="qb-q">
                 <div><b>{n}.</b> {q.prompt}</div>
-                <ul>
-                  {q.options.map((o) => (
-                    <li key={o.id} className={o.id === q.answer ? "correct" : ""}>
-                      <span className="qb-letter">{o.id.toUpperCase()}</span> {o.text} {o.id === q.answer && <span className="pill pill-good">✓ correct</span>}
-                    </li>
-                  ))}
-                </ul>
+                {q.rows?.length ? (
+                  <>
+                    <ul>
+                      {q.options.map((o) => (
+                        <li key={o.id}><span className="qb-letter">{o.id.toUpperCase()}</span> {o.text}</li>
+                      ))}
+                    </ul>
+                    <div className="small" style={{ marginTop: 6 }}>Matching grid (1 point, all rows must be right):</div>
+                    <ul>
+                      {q.rows.map((r, ri) => {
+                        const col = q.answer.split(",")[ri];
+                        return (
+                          <li key={r.id} className="correct">
+                            {r.text} → <span className="pill pill-good">✓ {col?.toUpperCase()}. {q.options.find((o) => o.id === col)?.text}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
+                ) : (
+                  <ul>
+                    {q.options.map((o) => (
+                      <li key={o.id} className={o.id === q.answer ? "correct" : ""}>
+                        <span className="qb-letter">{o.id.toUpperCase()}</span> {o.text} {o.id === q.answer && <span className="pill pill-good">✓ correct</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             );
           })}
@@ -233,8 +254,9 @@ function Preview({ a }: { a: ParsedAssessment }) {
 function MediaPanel({ canEdit }: { canEdit: boolean }) {
   const [data, setData] = useState<MediaList | null>(null);
   const [slug, setSlug] = useState("medical-biller");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [progress, setProgress] = useState<number | null>(null);
+  const [uploading, setUploading] = useState("");
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
 
@@ -250,31 +272,39 @@ function MediaPanel({ canEdit }: { canEdit: boolean }) {
   }, [load]);
 
   async function doUpload() {
-    if (!file) return;
+    if (!files.length) return;
     setErr("");
     setMsg("");
-    setProgress(0);
+    const done: string[] = [];
     try {
-      const safe = file.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9._-]/g, "");
-      const blob = await upload(`assessments/${slug}/${safe}`, file, {
-        access: "private",
-        handleUploadUrl: "/api/admin/media/upload",
-        clientPayload: slug,
-        multipart: file.size > 20 * 1024 * 1024,
-        onUploadProgress: (p) => setProgress(Math.round(p.percentage)),
-      });
-      const r = await api<{ name: string; replaced: boolean }>("/api/admin/media", {
-        method: "POST",
-        body: JSON.stringify({ slug, name: file.name, pathname: blob.pathname, size: file.size }),
-      });
-      setMsg(`${r.replaced ? "Replaced" : "Uploaded"} ${r.name}. Use this exact name in the Section Media column.`);
-      setFile(null);
-      (document.getElementById("media-file") as HTMLInputElement | null)?.value && ((document.getElementById("media-file") as HTMLInputElement).value = "");
-      await load();
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setProgress(0);
+        setUploading(files.length > 1 ? `${i + 1} of ${files.length}` : "");
+        const safe = file.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9._-]/g, "");
+        const blob = await upload(`assessments/${slug}/${safe}`, file, {
+          access: "private",
+          handleUploadUrl: "/api/admin/media/upload",
+          clientPayload: slug,
+          multipart: file.size > 20 * 1024 * 1024,
+          onUploadProgress: (p) => setProgress(Math.round(p.percentage)),
+        });
+        const r = await api<{ name: string; replaced: boolean }>("/api/admin/media", {
+          method: "POST",
+          body: JSON.stringify({ slug, name: file.name, pathname: blob.pathname, size: file.size }),
+        });
+        done.push(r.name);
+      }
+      setMsg(`Uploaded ${done.length} file${done.length === 1 ? "" : "s"}: ${done.join(", ")}. Use these exact names in the Section Media column.`);
+      setFiles([]);
+      const input = document.getElementById("media-file") as HTMLInputElement | null;
+      if (input) input.value = "";
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(`${(e as Error).message}${done.length ? ` (uploaded before the error: ${done.join(", ")})` : ""}`);
     }
+    await load();
     setProgress(null);
+    setUploading("");
   }
 
   async function remove(s: string, name: string) {
@@ -316,11 +346,11 @@ function MediaPanel({ canEdit }: { canEdit: boolean }) {
         {canEdit && (
           <>
             <div className="field" style={{ flex: "2 1 260px" }}>
-              <label htmlFor="media-file">Image or video</label>
-              <input id="media-file" type="file" className="input" accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm,video/quicktime" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+              <label htmlFor="media-file">Images or videos (you can pick several)</label>
+              <input id="media-file" type="file" multiple className="input" accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm,video/quicktime" onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
             </div>
-            <button className="btn btn-primary" disabled={!file || progress !== null || !data?.blobConfigured} onClick={doUpload}>
-              {progress !== null ? `Uploading… ${progress}%` : "Upload"}
+            <button className="btn btn-primary" disabled={!files.length || progress !== null || !data?.blobConfigured} onClick={doUpload}>
+              {progress !== null ? `Uploading ${uploading} … ${progress}%` : files.length > 1 ? `Upload ${files.length} files` : "Upload"}
             </button>
           </>
         )}

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PublicAttempt } from "@/lib/attempts";
 import type { ActivityType } from "@/lib/types";
 import "./exam.css";
+import { isAnswered, setGridRow } from "@/content/answers";
 
 type Stim = PublicAttempt["sections"][number]["stimuli"][number];
 
@@ -187,7 +188,8 @@ export default function ExamClient({ slug }: { slug: string }) {
   if (!data) return <div className="exam-loading">Loading your assessment…</div>;
 
   const total = data.sections.reduce((n, s) => n + s.questions.length, 0);
-  const answered = Object.keys(answers).length;
+  const allQs = data.sections.flatMap((s) => s.questions);
+  const answered = allQs.filter((q) => isAnswered(q, answers[q.id])).length;
   const section = data.sections[sectionIdx];
   const mins = Math.floor(remaining / 60000);
   const secs = Math.floor((remaining % 60000) / 1000);
@@ -214,7 +216,7 @@ export default function ExamClient({ slug }: { slug: string }) {
 
       <nav className="exam-nav" aria-label="Sections">
         {data.sections.map((s, i) => {
-          const done = s.questions.filter((q) => answers[q.id]).length;
+          const done = s.questions.filter((q) => isAnswered(q, answers[q.id])).length;
           return (
             <button key={s.id} className={`sec-tab ${i === sectionIdx ? "active" : ""}`} onClick={() => goTo(i)}>
               <span>{s.title}</span>
@@ -258,14 +260,51 @@ export default function ExamClient({ slug }: { slug: string }) {
                 <span className="qnum">{q.number}</span>
                 <span>{q.prompt}</span>
               </legend>
-              <div className="options">
-                {q.options.map((o) => (
-                  <label key={o.id} className={`option ${answers[q.id] === o.id ? "chosen" : ""}`}>
-                    <input type="radio" name={q.id} checked={answers[q.id] === o.id} onChange={() => choose(q.id, o.id)} />
-                    <span>{o.text}</span>
-                  </label>
-                ))}
-              </div>
+              {q.rows ? (
+                <div className="grid-q" role="group">
+                  <p className="small muted" style={{ margin: "0 0 8px" }}>Choose one answer for each row.</p>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th></th>
+                        {q.options.map((o) => <th key={o.id} scope="col">{o.text}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {q.rows.map((r, ri) => {
+                        const picked = (answers[q.id] ?? "").split(",")[ri];
+                        return (
+                          <tr key={r.id}>
+                            <th scope="row">{r.text}</th>
+                            {q.options.map((o) => (
+                              <td key={o.id}>
+                                <label className={`grid-cell ${picked === o.id ? "chosen" : ""}`}>
+                                  <input
+                                    type="radio"
+                                    name={`${q.id}-${r.id}`}
+                                    aria-label={`${r.text}: ${o.text}`}
+                                    checked={picked === o.id}
+                                    onChange={() => choose(q.id, setGridRow(answers[q.id], q.rows!.length, ri, o.id))}
+                                  />
+                                </label>
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="options">
+                  {q.options.map((o) => (
+                    <label key={o.id} className={`option ${answers[q.id] === o.id ? "chosen" : ""}`}>
+                      <input type="radio" name={q.id} checked={answers[q.id] === o.id} onChange={() => choose(q.id, o.id)} />
+                      <span>{o.text}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
               {pending[q.id] && <span className="small muted">Saving…</span>}
             </fieldset>
           ))}

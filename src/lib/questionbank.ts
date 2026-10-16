@@ -6,6 +6,8 @@
 // - Section / Section Description / Section Media only need to be filled on a section's first row.
 // - Section Media: one file per line, as "file-name.png | Caption" (the caption is optional).
 // - Correct: the letter of the right choice (A–F).
+// - Rows (optional): makes a matching grid. One item per line; candidates pick one choice (A–F) per row.
+//   Correct then lists one letter per row, in order, e.g. "A, B". Scored as one point, all or nothing.
 import { ASSESSMENTS } from "@/content/assessments";
 import { allQuestions, builtIn, getContent, type QuestionSet } from "@/content";
 import type { AssessmentContent, Section, Stimulus } from "@/content/types";
@@ -24,6 +26,7 @@ export const QUESTION_HEADERS = [
   "E",
   "F",
   "Correct",
+  "Rows",
 ];
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
@@ -69,7 +72,7 @@ function parseMedia(cell: string, row: number, issues: Issue[]): Stimulus[] {
 
 /** Strip volatile fields so two sets can be compared. */
 function fingerprint(c: AssessmentContent) {
-  return JSON.stringify(c.sections.map((s) => [s.title, s.description, s.stimuli, s.questions.map((q) => [q.prompt, q.options, q.answer])]));
+  return JSON.stringify(c.sections.map((s) => [s.title, s.description, s.stimuli, s.questions.map((q) => [q.prompt, q.options, q.rows ?? null, q.answer])]));
 }
 
 export async function parseQuestionRows(rows: string[][]): Promise<ParseResult> {
@@ -144,9 +147,18 @@ export async function parseQuestionRows(rows: string[][]): Promise<ParseResult> 
     const filled = choices.filter((c) => c.text);
     if (filled.length < 2) d.errors.push({ row: rowNum, message: "A question needs at least 2 choices (A and B)." });
 
+    const gridRows = cell(r, "Rows").split("\n").map((x) => x.trim()).filter(Boolean);
     const correct = cell(r, "Correct").toUpperCase().replace(/[^A-F]/g, "");
     if (!correct) d.errors.push({ row: rowNum, message: "Correct is blank. Enter the letter of the right choice (A–F)." });
-    else if (correct.length > 1) d.errors.push({ row: rowNum, message: `Correct should be one letter, not "${cell(r, "Correct")}".` });
+    else if (gridRows.length) {
+      if (gridRows.length < 2) d.errors.push({ row: rowNum, message: "A matching grid needs at least 2 rows (one per line in the Rows cell)." });
+      if (correct.length !== gridRows.length) {
+        d.errors.push({ row: rowNum, message: `This grid has ${gridRows.length} rows, so Correct needs ${gridRows.length} letters (one per row, e.g. "A, B"), not "${cell(r, "Correct")}".` });
+      } else {
+        const bad = [...correct].find((L) => !filled.some((c) => c.letter === L));
+        if (bad) d.errors.push({ row: rowNum, message: `Correct uses ${bad}, but choice ${bad} is blank.` });
+      }
+    } else if (correct.length > 1) d.errors.push({ row: rowNum, message: `Correct should be one letter, not "${cell(r, "Correct")}".` });
     else if (!filled.some((c) => c.letter === correct)) d.errors.push({ row: rowNum, message: `Correct is ${correct}, but choice ${correct} is blank.` });
 
     const texts = filled.map((c) => norm(c.text));
@@ -159,7 +171,8 @@ export async function parseQuestionRows(rows: string[][]): Promise<ParseResult> 
       id: `q${String(n).padStart(2, "0")}`,
       prompt,
       options: filled.map((c) => ({ id: c.letter.toLowerCase(), text: c.text })),
-      answer: correct.toLowerCase(),
+      ...(gridRows.length ? { rows: gridRows.map((t, k) => ({ id: `r${k + 1}`, text: t })) } : {}),
+      answer: gridRows.length ? [...correct].map((L) => L.toLowerCase()).join(",") : correct.toLowerCase(),
     });
   });
 
@@ -175,7 +188,7 @@ export async function parseQuestionRows(rows: string[][]): Promise<ParseResult> 
     const current = await getContent(slug);
     const content: AssessmentContent = {
       slug,
-      intro: (current ?? builtIn(slug))?.intro ?? defaultIntro(d.title),
+      intro: (current ?? builtIn(slug))?.intro ?? ASSESSMENTS.find((a) => a.slug === slug)?.intro ?? defaultIntro(d.title),
       sections: d.sections,
     };
     assessments.push({
@@ -211,7 +224,8 @@ export async function seedRows(): Promise<string[][]> {
           first ? (s.stimuli ?? []).map((st) => `${st.file} | ${st.caption}`).join("\n") : "",
           q.prompt,
           ...LETTERS.map((L) => q.options[letters.indexOf(L)]?.text ?? ""),
-          q.answer.toUpperCase(),
+          q.rows?.length ? q.answer.toUpperCase().split(",").join(", ") : q.answer.toUpperCase(),
+          (q.rows ?? []).map((x) => x.text).join("\n"),
         ]);
       });
     }

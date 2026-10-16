@@ -85,3 +85,16 @@
 .stim-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
 .stim-full figcaption { margin: 0; font-size: 14px; }
 .zoom-btn { min-height: 32px; padding: 4px 12px; font-size: 13px; }
+
+/* Matching grid */
+.grid-q { overflow-x: auto; }
+.grid-q table { border-collapse: collapse; width: 100%; min-width: 420px; }
+.grid-q th, .grid-q td { border-bottom: 1px solid var(--border); padding: 10px 8px; text-align: center; vertical-align: middle; }
+.grid-q thead th { font-size: 13.5px; color: var(--text-2); font-weight: 600; }
+.grid-q tbody th { text-align: left; font-weight: 500; width: 55%; }
+.grid-cell { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); }
+.grid-cell.chosen { border-color: var(--brand); background: var(--brand-soft); }
+.grid-cell input { width: 18px; height: 18px; accent-color: var(--brand); margin: 0; }
+
+/* Keep line breaks from the Questions tab in prompts and section text */
+.question legend > span:last-child, .exam-inner > p.muted { white-space: pre-line; }

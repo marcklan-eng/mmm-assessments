@@ -8,7 +8,12 @@ export type Question = {
   id: string; // stable id, e.g. "q01"
   prompt: string;
   options: Option[];
-  answer: string; // option id — server only, never sent to the browser
+  /** Matching grid: one row per item to match; candidates pick one option (column) per row.
+   *  Scored all-or-nothing as a single point. */
+  rows?: Option[];
+  /** Option id — or for a grid, one option id per row joined by commas ("a,b").
+   *  Server only, never sent to the browser. */
+  answer: string;
 };
 
 export type Section = {
@@ -35,4 +40,6 @@ export type AssessmentMeta = {
   prerequisite?: string;
   /** Offered on the confirmation screen after this assessment is submitted. */
   offerNext?: string;
+  /** Text on the start page (paragraphs). Used when the questions come from the Questions tab. */
+  intro?: string[];
 };

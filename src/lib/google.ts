@@ -4,6 +4,7 @@
 import type { Attempt } from "./types";
 import { getMeta } from "@/content/assessments";
 import { getContent, allQuestions, type QuestionSet } from "@/content";
+import { answerText } from "@/content/answers";
 
 type Target = { url?: string; secret?: string; label: string };
 
@@ -179,8 +180,7 @@ export async function attemptRow(a: Attempt, preloaded?: QuestionSet): Promise<{
   qs.forEach((q, i) => {
     headers.push(`Q${i + 1}`);
     const chosen = a.answers[q.id];
-    const text = q.options.find((o) => o.id === chosen)?.text;
-    values.push(!chosen ? "— (blank)" : `${chosen === q.answer ? "✓" : "✗"} ${text}`);
+    values.push(!chosen ? "— (blank)" : `${chosen === q.answer ? "✓" : "✗"} ${answerText(q, chosen)}`);
   });
   return { headers, values };
 }
