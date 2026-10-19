@@ -269,7 +269,9 @@ export default function ExamClient({ slug }: { slug: string }) {
                 <span className={`qnum ${q.count > 1 ? "qnum-range" : ""}`}>{numberLabel(q.number, q.count)}</span>
                 <span>{q.prompt}</span>
               </legend>
-              {q.options.length === 0 ? (
+              {q.input === "date" ? (
+                <DateAnswer key={q.id} initial={answers[q.id] ?? ""} label={q.prompt} onSave={(v) => choose(q.id, v)} />
+              ) : q.options.length === 0 ? (
                 <TextAnswer
                   key={q.id}
                   initial={answers[q.id] ?? ""}
@@ -455,6 +457,49 @@ function TextAnswer({ initial, label, onType, onSave }: { initial: string; label
         }}
         onBlur={() => flush(value)}
       />
+    </div>
+  );
+}
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** Date answer from Month / Day / Year dropdowns; saved as MM/DD/YYYY once all three are picked. */
+function DateAnswer({ initial, label, onSave }: { initial: string; label: string; onSave: (v: string) => void }) {
+  const m0 = initial.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const [month, setMonth] = useState(m0 ? String(Number(m0[1])) : "");
+  const [day, setDay] = useState(m0 ? String(Number(m0[2])) : "");
+  const [year, setYear] = useState(m0 ? m0[3] : "");
+  const thisYear = new Date().getFullYear();
+  const years = Array.from({ length: thisYear + 5 - 1900 + 1 }, (_, i) => String(thisYear + 5 - i));
+  const daysIn = month ? new Date(Number(year || 2000), Number(month), 0).getDate() : 31;
+  const update = (m: string, d: string, y: string) => {
+    if (d && Number(d) > (m ? new Date(Number(y || 2000), Number(m), 0).getDate() : 31)) d = "";
+    setMonth(m); setDay(d); setYear(y);
+    if (m && d && y) onSave(`${m.padStart(2, "0")}/${d.padStart(2, "0")}/${y}`);
+  };
+  return (
+    <div className="date-answer" role="group" aria-label={label}>
+      <label>
+        <span>Month</span>
+        <select className="input" value={month} onChange={(e) => update(e.target.value, day, year)}>
+          <option value="">Month</option>
+          {MONTHS.map((n, i) => <option key={n} value={String(i + 1)}>{n}</option>)}
+        </select>
+      </label>
+      <label>
+        <span>Day</span>
+        <select className="input" value={day} onChange={(e) => update(month, e.target.value, year)}>
+          <option value="">Day</option>
+          {Array.from({ length: daysIn }, (_, i) => String(i + 1)).map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+      </label>
+      <label>
+        <span>Year</span>
+        <select className="input" value={year} onChange={(e) => update(month, day, e.target.value)}>
+          <option value="">Year</option>
+          {years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </label>
     </div>
   );
 }

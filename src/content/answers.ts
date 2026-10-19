@@ -63,6 +63,13 @@ export function normalizeDate(s: string): string | null {
 
 const plain = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
+/** A typed-answer question whose accepted answer is a date: candidates pick Month / Day / Year. */
+export function isDateQuestion(q: Q & { answer: string }): boolean {
+  if (!isTextQuestion(q)) return false;
+  const first = q.answer.split("\n").map((a) => a.trim()).find(Boolean);
+  return Boolean(first && normalizeDate(first));
+}
+
 /** Whether a typed answer matches one of the accepted answers (case, spacing, punctuation and date format don't matter). */
 export function textMatches(accepted: string, value: string): boolean {
   const v = value.trim();

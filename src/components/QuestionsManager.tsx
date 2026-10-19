@@ -1,5 +1,5 @@
 "use client";
-import { numberLabel, pointsOf } from "@/content/answers";
+import { isDateQuestion, numberLabel, pointsOf } from "@/content/answers";
 import { useCallback, useEffect, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import type { ParseResult, ParsedAssessment } from "@/lib/questionbank";
@@ -228,7 +228,7 @@ function Preview({ a }: { a: ParsedAssessment }) {
                 <div><b>{numberLabel(start, pointsOf(q))}.</b> {q.prompt}</div>
                 {q.options.length === 0 ? (
                   <div className="small" style={{ marginTop: 6 }}>
-                    Typed answer. Accepted: <span className="pill pill-good">✓ {q.answer.split("\n").filter(Boolean).join(" or ")}</span>
+                    {isDateQuestion(q) ? "Date answer (Month / Day / Year dropdowns)." : "Typed answer."} Accepted: <span className="pill pill-good">✓ {q.answer.split("\n").filter(Boolean).join(" or ")}</span>
                   </div>
                 ) : q.rows?.length ? (
                   <>

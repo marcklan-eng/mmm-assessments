@@ -4,7 +4,7 @@ import type { ActivityType, Attempt } from "./types";
 import { getMeta, RETAKE_MONTHS } from "@/content/assessments";
 import { getContent, allQuestions, currentVersion } from "@/content";
 import { appendToSheet, sheetConfigured } from "./google";
-import { isTextQuestion, pointsEarned, pointsOf, totalPoints } from "@/content/answers";
+import { isDateQuestion, isTextQuestion, normalizeDate, pointsEarned, pointsOf, totalPoints } from "@/content/answers";
 import type { SessionUser } from "./auth";
 
 /** Answers arriving up to this long after the deadline are still accepted (network delay). */
@@ -101,7 +101,11 @@ export async function saveAnswer(a: Attempt, questionId: string, optionId: strin
   if (!q) throw new HttpError(400, "Unknown question");
   const valid = (id: string) => q.options.some((o) => o.id === id);
   if (optionId === null) delete a.answers[questionId];
-  else if (isTextQuestion(q)) {
+  else if (isDateQuestion(q)) {
+    // Picked from Month / Day / Year dropdowns, saved as MM/DD/YYYY.
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(optionId) || !normalizeDate(optionId)) throw new HttpError(400, "Invalid date");
+    a.answers[questionId] = optionId;
+  } else if (isTextQuestion(q)) {
     const text = optionId.replace(/\s+/g, " ").slice(0, 200);
     if (text.trim()) a.answers[questionId] = text;
     else delete a.answers[questionId];
@@ -203,7 +207,7 @@ export async function publicView(a: Attempt) {
           const count = pointsOf(q);
           const number = n + 1;
           n += count;
-          return { id: q.id, number, count, prompt: q.prompt, options: opts, rows: q.rows ?? null };
+          return { id: q.id, number, count, prompt: q.prompt, options: opts, rows: q.rows ?? null, input: isDateQuestion(q) ? ("date" as const) : null };
         }),
       };
     }),
