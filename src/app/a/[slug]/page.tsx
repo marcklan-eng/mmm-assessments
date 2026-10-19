@@ -6,7 +6,7 @@ import SignIn from "@/components/SignIn";
 import StartForm from "@/components/StartForm";
 import PrivacySummary from "@/components/PrivacySummary";
 import LocalTime from "@/components/LocalTime";
-import { parseSent, WINDOW_HOURS } from "@/lib/access";
+import { parseSent } from "@/lib/access";
 import { currentUser, enabledProviders } from "@/lib/auth";
 import { getEligibility } from "@/lib/attempts";
 import { getMeta } from "@/content/assessments";
@@ -71,7 +71,7 @@ export default async function AssessmentLanding({ params, searchParams }: { para
           <>
             <h2>This assessment link has expired</h2>
             <p className="muted">
-              Your invitation asked you to complete this assessment within {WINDOW_HOURS} hours of receiving the email. That period ended on{" "}
+              Your invitation asked you to complete this assessment within {e.hours} hours of receiving the email. That period ended on{" "}
               <b><LocalTime ms={e.expiredAt} /></b>.
             </p>
             <p className="muted">If you believe this is a mistake, please contact the LEAD Department at lead@mymountainmover.com.</p>

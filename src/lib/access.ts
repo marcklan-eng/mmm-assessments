@@ -6,9 +6,24 @@
 // An evaluator can give a candidate a fresh window from the dashboard ("Reopen a link").
 import { db } from "./db";
 
-// Off by default: candidates can take the assessment any time; the 48-hour rule is handled in Salesforce.
-export const WINDOW_HOURS = Number(process.env.LINK_EXPIRY_HOURS ?? 0);
-const WINDOW_MS = WINDOW_HOURS * 3600_000;
+// Off by default (candidates can take the assessment any time; the 48-hour rule is handled in Salesforce).
+// Turned on from the dashboard ("Link expiry"); the Vercel setting LINK_EXPIRY_HOURS, if set, overrides it.
+export type ExpirySetting = { hours: number; updatedBy?: string; updatedAt?: number };
+const SETTING_KEY = "settings:linkExpiry";
+const envHours = process.env.LINK_EXPIRY_HOURS != null && process.env.LINK_EXPIRY_HOURS !== "" ? Number(process.env.LINK_EXPIRY_HOURS) : null;
+
+/** Hours a candidate has from the invite (0 = links don't expire). */
+export async function expiryHours(): Promise<number> {
+  if (envHours != null && Number.isFinite(envHours)) return envHours;
+  return (await db.getJSON<ExpirySetting>(SETTING_KEY))?.hours ?? 0;
+}
+export async function expirySetting(): Promise<ExpirySetting & { fromVercel: boolean }> {
+  if (envHours != null && Number.isFinite(envHours)) return { hours: envHours, fromVercel: true };
+  return { hours: 0, ...((await db.getJSON<ExpirySetting>(SETTING_KEY)) ?? {}), fromVercel: false };
+}
+export async function setExpiryHours(hours: number, by: string): Promise<void> {
+  await db.setJSON(SETTING_KEY, { hours, updatedBy: by, updatedAt: Date.now() } satisfies ExpirySetting);
+}
 const NEW_INVITE_AFTER_MS = 180 * 86400_000; // a window older than 6 months belongs to an earlier application
 
 export type AccessRecord = { start: number; source: "email" | "first-visit" | "reopened"; reopenedBy?: string };
@@ -41,8 +56,10 @@ async function current(slug: string, email: string): Promise<AccessRecord | null
 }
 
 /** The candidate's window (created on first visit). Returns null when expiry is turned off. */
-export async function accessWindow(slug: string, email: string, sent?: number | null): Promise<{ start: number; expiresAt: number } | null> {
-  if (!(WINDOW_MS > 0)) return null;
+export async function accessWindow(slug: string, email: string, sent?: number | null): Promise<{ start: number; expiresAt: number; hours: number } | null> {
+  const hours = await expiryHours();
+  if (!(hours > 0)) return null;
+  const WINDOW_MS = hours * 3600_000;
   let r = await current(slug, email);
   if (!r) {
     r = sent ? { start: sent, source: "email" } : { start: Date.now(), source: "first-visit" };
@@ -51,12 +68,12 @@ export async function accessWindow(slug: string, email: string, sent?: number | 
     r = { start: sent, source: "email" };
     await db.setJSON(key(slug, email), r);
   }
-  return { start: r.start, expiresAt: r.start + WINDOW_MS };
+  return { start: r.start, expiresAt: r.start + WINDOW_MS, hours };
 }
 
 /** Gives the candidate a fresh window starting now (evaluator action). */
 export async function reopenAccess(slug: string, email: string, by: string): Promise<number> {
   const r: AccessRecord = { start: Date.now(), source: "reopened", reopenedBy: by };
   await db.setJSON(key(slug, email), r);
-  return r.start + WINDOW_MS;
+  return r.start + (await expiryHours()) * 3600_000;
 }

@@ -12,7 +12,8 @@ import { DEMO_MODE } from "@/lib/auth";
 import { dashboardOpenForDemo } from "@/lib/evaluators";
 import { usingRedis } from "@/lib/db";
 import ReopenLink from "@/components/ReopenLink";
-import { WINDOW_HOURS } from "@/lib/access";
+import { expirySetting } from "@/lib/access";
+import { isEditor } from "@/lib/evaluators";
 
 export const dynamic = "force-dynamic";
 
@@ -282,7 +283,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   </table>
                 </div>
               </div>
-              {WINDOW_HOURS > 0 && <ReopenLink assessments={ASSESSMENTS.map((a) => ({ slug: a.slug, title: a.title }))} hours={WINDOW_HOURS} />}
+              <ReopenLink assessments={ASSESSMENTS.map((a) => ({ slug: a.slug, title: a.title }))} initial={await expirySetting()} canEdit={await isEditor(user.email)} />
             </main>
           </>
         );
