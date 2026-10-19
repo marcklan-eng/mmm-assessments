@@ -1,6 +1,7 @@
 "use client";
 import { normalizeDate } from "@/content/answers";
 import { useCallback, useEffect, useState } from "react";
+import MediaField, { type MediaItem } from "./MediaField";
 
 // Edits one assessment's tab in the questions Sheet, one question (row) at a time.
 // Saving writes to the Sheet; publishing still happens with the Publish button, as before.
@@ -47,6 +48,19 @@ export default function QuestionEditor({ slug, title, onSaved }: { slug: string;
   const [open, setOpen] = useState<{ row: number; mode: "edit" | "add" } | null>(null);
   const [filter, setFilter] = useState("");
 
+  const [library, setLibrary] = useState<{ items: MediaItem[]; canUpload: boolean }>({ items: [], canUpload: false });
+  const loadLibrary = useCallback(async () => {
+    try {
+      const r = await api<{ blobConfigured: boolean; assessments: { slug: string; items: MediaItem[] }[] }>("/api/admin/media");
+      setLibrary({ items: r.assessments.find((a) => a.slug === slug)?.items ?? [], canUpload: r.blobConfigured });
+    } catch {
+      /* the picker still works with typed file names */
+    }
+  }, [slug]);
+  useEffect(() => {
+    loadLibrary();
+  }, [loadLibrary]);
+
   const load = useCallback(async () => {
     try {
       const r = await api<{ rows: Row[] }>(`/api/admin/questions/edit?slug=${slug}`);
@@ -91,7 +105,7 @@ export default function QuestionEditor({ slug, title, onSaved }: { slug: string;
           <div key={r.row}>
             {newSection && <div className="qe-section">{section}</div>}
             {open?.row === r.row && open.mode === "edit" ? (
-              <EditForm slug={slug} row={r} sectionName={section} onCancel={() => setOpen(null)} onSaved={saved} />
+              <EditForm library={library} reloadLibrary={loadLibrary} slug={slug} row={r} sectionName={section} onCancel={() => setOpen(null)} onSaved={saved} />
             ) : (
               <div className="qe-line">
                 <span className="qe-num">{label}</span>
@@ -104,7 +118,7 @@ export default function QuestionEditor({ slug, title, onSaved }: { slug: string;
               </div>
             )}
             {open?.row === r.row && open.mode === "add" && (
-              <EditForm slug={slug} row={{ row: r.row, cells: {} }} adding sectionName={section} onCancel={() => setOpen(null)} onSaved={saved} />
+              <EditForm library={library} reloadLibrary={loadLibrary} slug={slug} row={{ row: r.row, cells: {} }} adding sectionName={section} onCancel={() => setOpen(null)} onSaved={saved} />
             )}
           </div>
         );
@@ -113,7 +127,7 @@ export default function QuestionEditor({ slug, title, onSaved }: { slug: string;
   );
 }
 
-function EditForm({ slug, row, adding, sectionName, onCancel, onSaved }: { slug: string; row: Row; adding?: boolean; sectionName: string; onCancel: () => void; onSaved: (msg: string) => void }) {
+function EditForm({ library, reloadLibrary, slug, row, adding, sectionName, onCancel, onSaved }: { library: { items: MediaItem[]; canUpload: boolean }; reloadLibrary: () => Promise<void>; slug: string; row: Row; adding?: boolean; sectionName: string; onCancel: () => void; onSaved: (msg: string) => void }) {
   const c = row.cells;
   const get = (h: string) => c[h] ?? "";
   const [kind, setKind] = useState<Kind>(adding ? "single" : kindOf(c));
@@ -191,9 +205,8 @@ function EditForm({ slug, row, adding, sectionName, onCancel, onSaved }: { slug:
           <summary className="small">Section details (name, description, media)</summary>
           <label className="small">Section name<input className="input" value={sec.s} onChange={(e) => setSec({ ...sec, s: e.target.value })} /></label>
           <label className="small">Section description<textarea className="input" rows={3} value={sec.d} onChange={(e) => setSec({ ...sec, d: e.target.value })} /></label>
-          <label className="small"><span>Section media (one file per line: <code>file.png | Caption</code>; add <code>Layout: side by side</code> for a row)</span>
-            <textarea className="input mono" rows={3} value={sec.m} onChange={(e) => setSec({ ...sec, m: e.target.value })} />
-          </label>
+          <MediaField label="Section media (shown at the top of the section)" slug={slug} value={sec.m} onChange={(m) => setSec({ ...sec, m })}
+            library={library.items} canUpload={library.canUpload} onUploaded={reloadLibrary} allowLayout />
         </details>
       )}
 
@@ -258,9 +271,8 @@ function EditForm({ slug, row, adding, sectionName, onCancel, onSaved }: { slug:
         </label>
       )}
 
-      <label className="small"><span>Question media (optional; one file per line: <code>file.png | Caption</code>)</span>
-        <textarea className="input mono" rows={2} value={qMedia} onChange={(e) => setQMedia(e.target.value)} />
-      </label>
+      <MediaField label="Question media (shown with this question)" slug={slug} value={qMedia} onChange={setQMedia}
+        library={library.items} canUpload={library.canUpload} onUploaded={reloadLibrary} />
 
       {err && <div className="notice notice-bad small" role="alert">{err}</div>}
 
