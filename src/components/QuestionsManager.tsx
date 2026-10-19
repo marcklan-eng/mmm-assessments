@@ -31,20 +31,36 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
   const [confirm, setConfirm] = useState<ParsedAssessment | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const [checkedAt, setCheckedAt] = useState<number | null>(null);
   const runCheck = useCallback(async () => {
     setChecking(true);
     setErr("");
     try {
       setCheck(await api<Check>("/api/admin/questions/check"));
+      setCheckedAt(Date.now());
     } catch (e) {
       setErr((e as Error).message);
     }
     setChecking(false);
   }, []);
 
-  // Check the Sheet as soon as the page opens, so Edit / Preview / Publish are ready right away.
+  // Read the Sheet when the page opens, and again whenever you come back to this tab
+  // (e.g. after editing the Sheet in another tab), so what's shown is always current.
   useEffect(() => {
     runCheck();
+    let last = Date.now();
+    const back = () => {
+      if (document.visibilityState === "visible" && Date.now() - last > 5000) {
+        last = Date.now();
+        runCheck();
+      }
+    };
+    document.addEventListener("visibilitychange", back);
+    window.addEventListener("focus", back);
+    return () => {
+      document.removeEventListener("visibilitychange", back);
+      window.removeEventListener("focus", back);
+    };
   }, [runCheck]);
 
   async function seed() {
@@ -116,9 +132,11 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
         <div className="dash-head">
           <div>
             <h2>Questions in the Sheet</h2>
-            <p className="sub">Read from the questions Sheet and checked row by row when this page opens. Nothing goes live until you publish.</p>
+            <p className="sub">Read from the questions Sheet and checked row by row; updates by itself when you come back from editing the Sheet. Nothing goes live until you publish.</p>
           </div>
-          <button className="btn" onClick={runCheck} disabled={checking} title="Read the Sheet again (after editing it directly)">{checking ? "Reading the Sheet…" : "↻ Refresh"}</button>
+          <span className="small muted" aria-live="polite">
+            {checking ? "Reading the Sheet…" : checkedAt ? `Up to date · ${new Date(checkedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : ""}
+          </span>
         </div>
 
         {!check && checking && <p className="small muted" style={{ marginTop: 12 }}>Reading the questions Sheet…</p>}
@@ -177,7 +195,7 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
                 <ul className="clean small qb-issues warn">{a.warnings.map((e, i) => <li key={i}>{where(e)}{e.message}</li>)}</ul>
               )}
               {preview === a.slug && <Preview a={a} />}
-              {editing === a.slug && <QuestionEditor slug={a.slug} title={a.title} onSaved={runCheck} />}
+              {editing === a.slug && <QuestionEditor slug={a.slug} title={a.title} onSaved={runCheck} refreshedAt={checkedAt} />}
             </div>
           );
         })}

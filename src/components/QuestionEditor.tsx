@@ -41,7 +41,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return j as T;
 }
 
-export default function QuestionEditor({ slug, title, onSaved }: { slug: string; title: string; onSaved: () => void }) {
+export default function QuestionEditor({ slug, title, onSaved, refreshedAt }: { slug: string; title: string; onSaved: () => void; refreshedAt?: number | null }) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
@@ -72,6 +72,11 @@ export default function QuestionEditor({ slug, title, onSaved }: { slug: string;
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (refreshedAt && !open) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshedAt]);
 
   async function saved(text: string) {
     setOpen(null);
