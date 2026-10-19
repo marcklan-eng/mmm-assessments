@@ -64,3 +64,12 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .role-n { font-variant-numeric: tabular-nums; font-size: 12px; padding: 0 6px; border-radius: 999px; background: rgba(127,127,127,.15); }
 .role-tab.active .role-n { background: rgba(255,255,255,.25); }
 tr.muted td { color: var(--text-3); }
+.qb-media figure.qb-audio { width: 100%; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.qb-media figure.qb-audio audio { flex: 1 1 260px; min-width: 0; max-width: 420px; }
+.qb-media figure.qb-audio figcaption { order: -1; min-width: 120px; }
+.qb-grid { border-collapse: collapse; margin-top: 6px; font-size: 13px; }
+.qb-grid th, .qb-grid td { padding: 7px 10px; text-align: center; border-bottom: 1px solid var(--border); }
+.qb-grid thead th { font-weight: 600; color: var(--text-2); max-width: 110px; }
+.qb-grid tbody th { text-align: left; font-weight: 600; white-space: nowrap; }
+.qb-dot { display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--text-3); vertical-align: middle; }
+.qb-dot.on { border-color: var(--good); background: radial-gradient(circle, var(--good) 0 45%, transparent 50%); }

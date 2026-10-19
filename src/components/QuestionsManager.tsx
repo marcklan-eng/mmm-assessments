@@ -205,12 +205,12 @@ function Preview({ a }: { a: ParsedAssessment }) {
           {(s.stimuli ?? []).length > 0 && (
             <div className="qb-media">
               {(s.stimuli ?? []).map((st) => (
-                <figure key={st.file}>
+                <figure key={st.file} className={st.type === "audio" ? "qb-audio" : undefined}>
                   {st.type === "image" ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={`/api/asset/${a.slug}/${encodeURIComponent(st.file)}`} alt={st.caption} />
                   ) : st.type === "audio" ? (
-                    <audio src={`/api/asset/${a.slug}/${encodeURIComponent(st.file)}`} controls preload="none" style={{ width: 220 }} />
+                    <audio src={`/api/asset/${a.slug}/${encodeURIComponent(st.file)}`} controls preload="none" />
                   ) : (
                     <div className="qb-video">▶ Video</div>
                   )}
@@ -230,22 +230,34 @@ function Preview({ a }: { a: ParsedAssessment }) {
                   </div>
                 ) : q.rows?.length ? (
                   <>
-                    <ul>
-                      {q.options.map((o) => (
-                        <li key={o.id}><span className="qb-letter">{o.id.toUpperCase()}</span> {o.text}</li>
-                      ))}
-                    </ul>
-                    <div className="small" style={{ marginTop: 6 }}>{q.scoring === "per-row" ? `Matching grid (${q.rows.length} points, 1 per row):` : "Matching grid (1 point, all rows must be right):"}</div>
-                    <ul>
-                      {q.rows.map((r, ri) => {
-                        const col = q.answer.split(",")[ri];
-                        return (
-                          <li key={r.id} className="correct">
-                            {r.text} → <span className="pill pill-good">✓ {col?.toUpperCase()}. {q.options.find((o) => o.id === col)?.text}</span>
-                          </li>
-                        );
-                      })}
-                    </ul>
+                    <div className="small muted" style={{ marginTop: 6 }}>
+                      {q.scoring === "per-row" ? `One answer per row · ${q.rows.length} points, 1 per row` : "One answer per row · 1 point, all rows must be right"}
+                    </div>
+                    <div className="table-scroll">
+                      <table className="qb-grid">
+                        <thead>
+                          <tr>
+                            <th></th>
+                            {q.options.map((o) => <th key={o.id} scope="col">{o.text}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {q.rows.map((r, ri) => {
+                            const col = q.answer.split(",")[ri];
+                            return (
+                              <tr key={r.id}>
+                                <th scope="row">{r.text}</th>
+                                {q.options.map((o) => (
+                                  <td key={o.id} aria-label={o.id === col ? `${r.text}: ${o.text} (correct)` : undefined}>
+                                    <span className={`qb-dot ${o.id === col ? "on" : ""}`} />
+                                  </td>
+                                ))}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </>
                 ) : (
                   <ul>
