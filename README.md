@@ -136,6 +136,18 @@ Publishing questions for a "Coming soon" assessment makes it live.
 
 **Other settings** (time limit, passing score, prerequisite, retake period) are in `src/content/assessments.ts`.
 
+## Link expiry (48 hours)
+Every candidate gets the same link for an assessment, so each candidate's 48 hours (Vercel setting `LINK_EXPIRY_HOURS`, default 48;
+`0` turns expiry off) start at the earliest of:
+- **the time the invitation email was sent**, if the link carries it: `https://…/a/medical-admin?sent=<date>`. The Salesforce
+  template can add this with a date/time merge field. Accepted formats: `2026-10-10`, `2026-10-10T20:47:00Z`, `10/10/2026`,
+  `10/10/2026 8:47 PM`, or milliseconds since 1970;
+- **the first time the candidate opens the link while signed in** (always applies, so it works without the `sent` part).
+
+The earliest time ever seen is kept, so changing the date in the link can't extend the deadline. After the deadline the page says
+the link has expired and the assessment can't be started. Someone already in the middle of the assessment can finish it. To give
+a candidate a new 48 hours, use **Reopen an expired link** at the bottom of the dashboard (they use the same link again).
+
 ## Content notes to revisit (kept as-is for the prototype)
 
 - **Q1 and Q4** have the same answer, and Q4 gives away Q1.

@@ -6,6 +6,7 @@ import { getContent, allQuestions, currentVersion } from "@/content";
 import { appendToSheet, sheetConfigured } from "./google";
 import { isDateQuestion, isTextQuestion, normalizeDate, itemsOf, pointsEarned, toggleChoice, totalPoints } from "@/content/answers";
 import type { SessionUser } from "./auth";
+import { accessWindow } from "./access";
 
 /** Answers arriving up to this long after the deadline are still accepted (network delay). */
 export const GRACE_MS = 10_000;
@@ -22,7 +23,8 @@ export type Eligibility =
   | { state: "needs-prerequisite"; prerequisite: string }
   | { state: "in-progress"; attempt: Attempt }
   | { state: "locked"; retakeAfter: number }
-  | { state: "eligible" };
+  | { state: "expired"; expiredAt: number }
+  | { state: "eligible"; expiresAt: number | null };
 
 async function latestAttempt(slug: string, email: string): Promise<Attempt | null> {
   const id = await db.getLatestId(slug, email);
@@ -31,7 +33,7 @@ async function latestAttempt(slug: string, email: string): Promise<Attempt | nul
   return a ? finalizeIfExpired(a) : null;
 }
 
-export async function getEligibility(slug: string, email: string): Promise<Eligibility> {
+export async function getEligibility(slug: string, email: string, sent?: number | null): Promise<Eligibility> {
   const meta = getMeta(slug);
   if (!meta) return { state: "not-found" };
 
@@ -44,11 +46,14 @@ export async function getEligibility(slug: string, email: string): Promise<Eligi
   const last = await latestAttempt(slug, email);
   if (last?.status === "in_progress") return { state: "in-progress", attempt: last };
   if (last?.retakeAfter && Date.now() < last.retakeAfter) return { state: "locked", retakeAfter: last.retakeAfter };
-  return { state: "eligible" };
+  // Invite link: 48 hours from the email (or from the first visit).
+  const w = await accessWindow(slug, email, sent);
+  if (w && Date.now() > w.expiresAt) return { state: "expired", expiredAt: w.expiresAt };
+  return { state: "eligible", expiresAt: w?.expiresAt ?? null };
 }
 
-export async function startAttempt(slug: string, user: SessionUser, name: string): Promise<Attempt> {
-  const elig = await getEligibility(slug, user.email);
+export async function startAttempt(slug: string, user: SessionUser, name: string, sent?: number | null): Promise<Attempt> {
+  const elig = await getEligibility(slug, user.email, sent);
   if (elig.state === "in-progress") return elig.attempt;
   if (elig.state !== "eligible") throw new HttpError(403, elig.state);
 

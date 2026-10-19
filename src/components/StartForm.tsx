@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 
-export default function StartForm({ slug, defaultName, minutes = 30 }: { slug: string; defaultName: string; minutes?: number }) {
+export default function StartForm({ slug, defaultName, minutes = 30, sent }: { slug: string; defaultName: string; minutes?: number; sent?: string | null }) {
   const [name, setName] = useState(defaultName);
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -13,12 +13,18 @@ export default function StartForm({ slug, defaultName, minutes = 30 }: { slug: s
     const res = await fetch("/api/attempts/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug, name, agreed }),
+      body: JSON.stringify({ slug, name, agreed, sent }),
     });
     if (res.ok) window.location.href = `/a/${slug}/take`;
     else {
       const j = await res.json().catch(() => ({}));
-      setErr(j.error === "locked" ? "You’ve already completed this assessment." : "Could not start the assessment. Please refresh and try again.");
+      setErr(
+        j.error === "locked"
+          ? "You’ve already completed this assessment."
+          : j.error === "expired"
+            ? "This assessment link has expired. Please contact lead@mymountainmover.com."
+            : "Could not start the assessment. Please refresh and try again.",
+      );
       setBusy(false);
     }
   }

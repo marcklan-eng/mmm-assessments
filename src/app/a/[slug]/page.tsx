@@ -5,6 +5,8 @@ import TopBar from "@/components/TopBar";
 import SignIn from "@/components/SignIn";
 import StartForm from "@/components/StartForm";
 import PrivacySummary from "@/components/PrivacySummary";
+import LocalTime from "@/components/LocalTime";
+import { parseSent, WINDOW_HOURS } from "@/lib/access";
 import { currentUser, enabledProviders } from "@/lib/auth";
 import { getEligibility } from "@/lib/attempts";
 import { getMeta } from "@/content/assessments";
@@ -14,8 +16,12 @@ export const dynamic = "force-dynamic";
 
 const fmt = (ms: number) => new Date(ms).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
-export default async function AssessmentLanding({ params }: { params: Promise<{ slug: string }> }) {
+export default async function AssessmentLanding({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { slug } = await params;
+  const sp = await searchParams;
+  const sentRaw = typeof sp.sent === "string" ? sp.sent : null;
+  const sent = parseSent(sentRaw);
+  const here = `/a/${slug}${sentRaw ? `?sent=${encodeURIComponent(sentRaw)}` : ""}`;
   const meta = getMeta(slug);
   if (!meta) notFound();
   const user = await currentUser();
@@ -25,12 +31,12 @@ export default async function AssessmentLanding({ params }: { params: Promise<{ 
   if (!user) {
     body = (
       <>
-        <SignIn callbackUrl={`/a/${slug}`} providers={enabledProviders} heading="Sign in to begin" />
+        <SignIn callbackUrl={here} providers={enabledProviders} heading="Sign in to begin" />
         <PrivacySummary />
       </>
     );
   } else {
-    const e = await getEligibility(slug, user.email);
+    const e = await getEligibility(slug, user.email, sent);
     switch (e.state) {
       case "needs-prerequisite": {
         const pre = getMeta(e.prerequisite)!;
@@ -60,6 +66,18 @@ export default async function AssessmentLanding({ params }: { params: Promise<{ 
           </>
         );
         break;
+      case "expired":
+        body = (
+          <>
+            <h2>This assessment link has expired</h2>
+            <p className="muted">
+              Your invitation asked you to complete this assessment within {WINDOW_HOURS} hours of receiving the email. That period ended on{" "}
+              <b><LocalTime ms={e.expiredAt} /></b>.
+            </p>
+            <p className="muted">If you believe this is a mistake, please contact the LEAD Department at lead@mymountainmover.com.</p>
+          </>
+        );
+        break;
       case "in-progress":
         body = (
           <>
@@ -76,7 +94,7 @@ export default async function AssessmentLanding({ params }: { params: Promise<{ 
             <div className="facts">
               <div className="fact"><b>{content ? totalItems(allQuestions(content)) : 0}</b><span>{content && allQuestions(content).every((q) => q.options.length) ? "multiple-choice questions" : "questions"}</span></div>
               <div className="fact"><b>{meta.timeLimitMinutes} minutes</b><span>one timer for the whole assessment</span></div>
-              <div className="fact"><b>One attempt</b></div>
+              <div className="fact"><b>One attempt</b>{e.expiresAt && <span>link expires <LocalTime ms={e.expiresAt} /></span>}</div>
             </div>
             <h3>Before you start</h3>
             <ul className="clean muted">
@@ -93,7 +111,7 @@ export default async function AssessmentLanding({ params }: { params: Promise<{ 
               </li>
             </ul>
             <PrivacySummary />
-            <StartForm slug={slug} defaultName={user.name} minutes={meta.timeLimitMinutes} />
+            <StartForm slug={slug} defaultName={user.name} minutes={meta.timeLimitMinutes} sent={sentRaw} />
           </>
         );
         break;
