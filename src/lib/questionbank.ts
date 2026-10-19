@@ -6,6 +6,7 @@
 // - One row per question, in the order candidates will see them.
 // - Section / Section Description / Section Media only need to be filled on a section's first row.
 // - Section Media: one file per line, as "file-name.png | Caption" (the caption is optional).
+//   Add a line "Layout: side by side" to show the images in a row (each with Zoom) instead of full width.
 // - Correct: the letter of the right choice (A–F). Several letters ("A, D") with no Rows makes a
 //   "check all that apply" question: 1 point when exactly those choices are checked.
 // - Question Media (optional): images shown with that question, same format as Section Media.
@@ -63,11 +64,13 @@ function defaultIntro(title: string): string[] {
   ];
 }
 
+const LAYOUT_LINE = /^layout\s*:/i;
+
 function parseMedia(cell: string, row: number, issues: Issue[]): Stimulus[] {
   return cell
     .split(/\n|;/)
     .map((l) => l.trim())
-    .filter(Boolean)
+    .filter((l) => l && !LAYOUT_LINE.test(l))
     .flatMap((line) => {
       const [file, ...cap] = line.split("|");
       const name = file.trim();
@@ -82,7 +85,7 @@ function parseMedia(cell: string, row: number, issues: Issue[]): Stimulus[] {
 
 /** Strip volatile fields so two sets can be compared. */
 function fingerprint(c: AssessmentContent) {
-  return JSON.stringify(c.sections.map((s) => [s.title, s.description, s.stimuli, s.questions.map((q) => [q.prompt, q.options, q.rows ?? null, q.scoring ?? null, q.multi ?? null, q.points ?? null, q.media ?? null, q.answer])]));
+  return JSON.stringify(c.sections.map((s) => [s.title, s.description, s.stimuli, s.layout ?? null, s.questions.map((q) => [q.prompt, q.options, q.rows ?? null, q.scoring ?? null, q.multi ?? null, q.points ?? null, q.media ?? null, q.answer])]));
 }
 
 /** Header for a per-assessment tab (no Assessment column needed). */
@@ -186,7 +189,15 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
     const desc = cell(r, "Section Description");
     if (desc && !section.description) section.description = desc;
     const media = cell(r, "Section Media");
-    if (media && !(section.stimuli ?? []).length) section.stimuli = parseMedia(media, rowNum, d.errors);
+    if (media && !(section.stimuli ?? []).length) {
+      section.stimuli = parseMedia(media, rowNum, d.errors);
+      const layout = media.split(/\n|;/).map((l) => l.trim()).find((l) => LAYOUT_LINE.test(l));
+      if (layout) {
+        const v = layout.replace(LAYOUT_LINE, "").toLowerCase().replace(/[^a-z]/g, "");
+        if (["sidebyside", "row", "sidebysides"].includes(v)) section.layout = "side-by-side";
+        else if (!["fullwidth", "full", "default"].includes(v)) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `"${layout}" — use "Layout: side by side" (or leave the line out for full width).` });
+      }
+    }
 
     const prompt = cell(r, "Question");
     if (!prompt) {
@@ -312,7 +323,7 @@ export async function seedTabs(): Promise<{ name: string; rows: string[][] }[]> 
         rows.push([
           s.title,
           first ? s.description ?? "" : "",
-          first ? (s.stimuli ?? []).map((st) => `${st.file} | ${st.caption}`).join("\n") : "",
+          first ? [...(s.stimuli ?? []).map((st) => `${st.file} | ${st.caption}`), ...(s.layout ? ["Layout: side by side"] : [])].join("\n") : "",
           q.prompt,
           ...LETTERS.map((L) => q.options[letters.indexOf(L)]?.text ?? ""),
           !q.options.length ? q.answer : q.rows?.length || q.multi ? q.answer.toUpperCase().split(",").join(", ") : q.answer.toUpperCase(),

@@ -206,6 +206,7 @@ export async function publicView(a: Attempt) {
         id: s.id,
         title: s.title,
         description: s.description ?? "",
+        layout: s.layout ?? null,
         stimuli: (s.stimuli ?? []).map((st) => ({ ...st, url: `/api/asset/${a.slug}/${encodeURIComponent(st.file)}?v=${a.version ?? 0}` })),
         questions: o.questionIds.map((qid) => {
           const q = byId.get(qid)!;

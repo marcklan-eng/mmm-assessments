@@ -108,3 +108,11 @@
 .date-answer { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1.1fr); gap: 10px; margin-top: 10px; max-width: 460px; }
 .date-answer label { display: grid; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--text-2); }
 .q-media { margin: 4px 0 14px; }
+
+/* Side-by-side images (Section Media "Layout: side by side"): a row of smaller images; Zoom or click to enlarge. */
+.stimuli.stimuli-row { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.stimuli-row .stim-full { padding: 8px; }
+.stimuli-row .stim-full img { height: 130px; object-fit: contain; cursor: zoom-in; background: #fff; pointer-events: auto; }
+.stimuli-row .stim-head { flex-wrap: wrap; gap: 6px; }
+.stimuli-row .stim-full figcaption { font-size: 13px; }
+@media (max-width: 640px) { .stimuli.stimuli-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -32,6 +32,8 @@ export type Section = {
   title: string;
   description?: string;
   stimuli?: Stimulus[];
+  /** "side-by-side": the section's images show as a row of smaller images, each with Zoom. Default: full width. */
+  layout?: "side-by-side";
   questions: Question[];
 };
 

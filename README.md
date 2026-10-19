@@ -104,7 +104,7 @@ Without `QUESTIONS_WEBHOOK_URL`, the Questions tab lives in the results Sheet in
 | Assessment | The assessment name exactly, e.g. `Medical Biller`, `Dental Receptionist` |
 | Section | The section (page) title. It only needs to be filled on the section's first row |
 | Section Description | Optional text under the section title (first row of the section) |
-| Section Media | Optional images, videos or audio (.mp3) for the section (first row): one per line, as `file-name.png \| Caption` |
+| Section Media | Optional images, videos or audio (.mp3) for the section (first row): one per line, as `file-name.png \| Caption`. Add a line `Layout: side by side` to show the images in a row with Zoom buttons instead of full width |
 | Question | The question text |
 | A – F | The choices. At least A and B; leave the unused ones blank. Leave **all** blank for a **typed-answer** question |
 | Correct | The letter of the correct choice. Several letters (`A, D`) with no Rows makes a **check all that apply** question: 1 point when exactly those are checked. For a typed answer, the accepted answer (several on separate lines). Case, spacing and punctuation don't matter, and dates match in any format (`06/18/1987` = `June 18, 1987`). When the accepted answer is a date, candidates pick it from Month / Day / Year dropdowns |

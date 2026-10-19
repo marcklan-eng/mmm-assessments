@@ -217,7 +217,7 @@ export default function ExamClient({ slug }: { slug: string }) {
                       <button className="btn zoom-btn" onClick={() => setViewer(st)}>Zoom</button>
                     </div>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={st.url} alt={st.caption} draggable={false} />
+                    <img src={st.url} alt={st.caption} draggable={false} onClick={() => setViewer(st)} />
                   </figure>
                 );
 
@@ -259,7 +259,7 @@ export default function ExamClient({ slug }: { slug: string }) {
           {section.description && <p className="muted" style={{ whiteSpace: "pre-line" }}>{section.description}</p>}
 
           {section.stimuli.length > 0 && (
-            <div className="stimuli">
+            <div className={`stimuli ${section.layout === "side-by-side" ? "stimuli-row" : ""}`}>
               {section.stimuli.map(renderStim)}
             </div>
           )}
@@ -360,7 +360,17 @@ export default function ExamClient({ slug }: { slug: string }) {
 
       {viewer && !blurred && (
         <div className="viewer" role="dialog" aria-modal aria-label={viewer.caption}>
-          <ImageViewer stim={viewer} onClose={() => setViewer(null)} />
+          <ImageViewer
+            stim={viewer}
+            group={(() => {
+              // Step through the other images shown alongside this one (same section or same question).
+              const groups = data.sections.flatMap((s) => [s.stimuli, ...s.questions.map((q) => q.media)]);
+              const g = groups.find((list) => list.some((x) => x.url === viewer.url)) ?? [viewer];
+              return g.filter((x) => x.type === "image");
+            })()}
+            onPick={setViewer}
+            onClose={() => setViewer(null)}
+          />
         </div>
       )}
 
@@ -412,20 +422,32 @@ export default function ExamClient({ slug }: { slug: string }) {
   );
 }
 
-function ImageViewer({ stim, onClose }: { stim: Stim; onClose: () => void }) {
+function ImageViewer({ stim, group, onPick, onClose }: { stim: Stim; group: Stim[]; onPick: (s: Stim) => void; onClose: () => void }) {
   const [zoom, setZoom] = useState(1);
+  const i = Math.max(0, group.findIndex((x) => x.url === stim.url));
+  const go = useCallback((d: number) => {
+    if (group.length < 2) return;
+    setZoom(1);
+    onPick(group[(i + d + group.length) % group.length]);
+  }, [group, i, onPick]);
   useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const k = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") go(1);
+      if (e.key === "ArrowLeft") go(-1);
+    };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
-  }, [onClose]);
+  }, [onClose, go]);
   return (
     <>
       <div className="viewer-bar">
-        <span>{stim.caption}</span>
+        <span>{stim.caption}{group.length > 1 ? ` (${i + 1} of ${group.length})` : ""}</span>
         <div className="btn-row">
+          {group.length > 1 && <button className="btn" onClick={() => go(-1)} aria-label="Previous image">←</button>}
+          {group.length > 1 && <button className="btn" onClick={() => go(1)} aria-label="Next image">→</button>}
           <button className="btn" onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))} aria-label="Zoom out">−</button>
-          <span className="zoom-val">{Math.round(zoom * 100)}%</span>
+          <span className="zoom-val">{zoom === 1 ? "Fit" : `${Math.round(zoom * 100)}%`}</span>
           <button className="btn" onClick={() => setZoom((z) => Math.min(4, z + 0.25))} aria-label="Zoom in">+</button>
           <button className="btn" onClick={() => setZoom(1)}>Fit</button>
           <button className="btn btn-primary" onClick={onClose}>Close</button>
@@ -433,7 +455,12 @@ function ImageViewer({ stim, onClose }: { stim: Stim; onClose: () => void }) {
       </div>
       <div className="viewer-stage">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={stim.url} alt={stim.caption} draggable={false} style={{ width: `${zoom * 100}%`, maxWidth: zoom === 1 ? "100%" : "none" }} />
+        <img
+          src={stim.url}
+          alt={stim.caption}
+          draggable={false}
+          style={zoom === 1 ? { maxWidth: "100%", maxHeight: "calc(100vh - 110px)", width: "auto" } : { width: `${zoom * 100}%`, maxWidth: "none" }}
+        />
       </div>
     </>
   );
