@@ -55,7 +55,7 @@ export default function ReopenLink({ assessments, initial, canEdit }: { assessme
     <div className="panel section-gap">
       <div className="dash-head">
         <div>
-          <h2>Link expiry</h2>
+          <h2>Setting</h2>
           <p className="sub">
             {on
               ? `On: a candidate who opens their link more than ${setting.hours} hours after their invitation email (or after first opening it) sees “This assessment link has expired” and can’t start.`

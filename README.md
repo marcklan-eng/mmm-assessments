@@ -138,8 +138,8 @@ Publishing questions for a "Coming soon" assessment makes it live.
 
 ## Link expiry (off by default)
 By default links don't expire: the 48-hour rule is handled in Salesforce, and evaluators judge late submissions from the
-**Submitted At** time. To make late candidates see "This assessment link has expired", turn on **Link expiry** at the bottom of
-the dashboard (editors of the questions Sheet; hours adjustable, default 48). The Vercel setting `LINK_EXPIRY_HOURS`, if set,
+**Submitted At** time. To make late candidates see "This assessment link has expired", turn it on with the **Link expiry** button next to
+**Questions & media** on the dashboard (editors of the questions Sheet; hours adjustable, default 48). The Vercel setting `LINK_EXPIRY_HOURS`, if set,
 overrides the dashboard switch. Since every candidate gets the same link for an assessment, each candidate's window starts at the earliest of:
 - **the time the invitation email was sent**, if the link carries it: `https://…/a/medical-admin?sent=<date>`. The Salesforce
   template can add this with a date/time merge field. Accepted formats: `2026-10-10`, `2026-10-10T20:47:00Z`, `10/10/2026`,

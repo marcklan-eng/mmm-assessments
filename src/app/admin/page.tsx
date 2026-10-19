@@ -11,9 +11,7 @@ import { fmtDuration, sheetConfigured } from "@/lib/google";
 import { DEMO_MODE } from "@/lib/auth";
 import { dashboardOpenForDemo } from "@/lib/evaluators";
 import { usingRedis } from "@/lib/db";
-import ReopenLink from "@/components/ReopenLink";
 import { expirySetting } from "@/lib/access";
-import { isEditor } from "@/lib/evaluators";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +89,14 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 </div>
                 <div className="btn-row">
                   <Link className="btn" href="/admin/questions">Questions &amp; media</Link>
+                  {await (async () => {
+                    const x = await expirySetting();
+                    return (
+                      <Link className="btn" href="/admin/links" title={x.hours > 0 ? `Links expire ${x.hours} hours after the invitation` : "Links don't expire"}>
+                        Link expiry <span className={`pill ${x.hours > 0 ? "pill-good" : "pill-neutral"}`} style={{ marginLeft: 6 }}>{x.hours > 0 ? `On · ${x.hours}h` : "Off"}</span>
+                      </Link>
+                    );
+                  })()}
                   <a className="btn" href={`/api/admin/export?${exportQs}`}>Export CSV</a>
                 </div>
               </div>
@@ -244,7 +250,6 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 </div>
               )}
 
-              <ReopenLink assessments={ASSESSMENTS.map((a) => ({ slug: a.slug, title: a.title }))} initial={await expirySetting()} canEdit={await isEditor(user.email)} />
 
               <div className="panel section-gap">
                 <h2>Candidates</h2>
