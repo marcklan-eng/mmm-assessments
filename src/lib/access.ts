@@ -6,7 +6,8 @@
 // An evaluator can give a candidate a fresh window from the dashboard ("Reopen a link").
 import { db } from "./db";
 
-export const WINDOW_HOURS = Number(process.env.LINK_EXPIRY_HOURS ?? 48);
+// Off by default: candidates can take the assessment any time; the 48-hour rule is handled in Salesforce.
+export const WINDOW_HOURS = Number(process.env.LINK_EXPIRY_HOURS ?? 0);
 const WINDOW_MS = WINDOW_HOURS * 3600_000;
 const NEW_INVITE_AFTER_MS = 180 * 86400_000; // a window older than 6 months belongs to an earlier application
 
