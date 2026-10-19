@@ -138,3 +138,4 @@ table.data tr:hover td { background: var(--surface-2); }
 .privacy-box { margin-top: 20px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
 .privacy-box h3 { margin: 0 0 6px; font-size: 15px; }
 .privacy-box p { margin: 0 0 8px; color: var(--text-2); }
+.timeup-icon { width: 52px; height: 52px; border-radius: 999px; display: grid; place-items: center; font-size: 26px; background: var(--warn-soft, #fbf0d9); margin-bottom: 10px; }

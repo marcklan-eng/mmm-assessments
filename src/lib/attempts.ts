@@ -22,11 +22,11 @@ export type Eligibility =
   | { state: "coming-soon" }
   | { state: "needs-prerequisite"; prerequisite: string }
   | { state: "in-progress"; attempt: Attempt }
-  | { state: "locked"; retakeAfter: number }
+  | { state: "locked"; retakeAfter: number; timedOut: boolean; endedAt: number | null }
   | { state: "expired"; expiredAt: number; hours: number }
   | { state: "eligible"; expiresAt: number | null };
 
-async function latestAttempt(slug: string, email: string): Promise<Attempt | null> {
+export async function latestAttempt(slug: string, email: string): Promise<Attempt | null> {
   const id = await db.getLatestId(slug, email);
   if (!id) return null;
   const a = await db.getAttempt(id);
@@ -45,7 +45,9 @@ export async function getEligibility(slug: string, email: string, sent?: number 
 
   const last = await latestAttempt(slug, email);
   if (last?.status === "in_progress") return { state: "in-progress", attempt: last };
-  if (last?.retakeAfter && Date.now() < last.retakeAfter) return { state: "locked", retakeAfter: last.retakeAfter };
+  if (last?.retakeAfter && Date.now() < last.retakeAfter) {
+    return { state: "locked", retakeAfter: last.retakeAfter, timedOut: last.status === "timed_out", endedAt: last.submittedAt ?? null };
+  }
   // Invite link: 48 hours from the email (or from the first visit).
   const w = await accessWindow(slug, email, sent);
   if (w && Date.now() > w.expiresAt) return { state: "expired", expiredAt: w.expiresAt, hours: w.hours };

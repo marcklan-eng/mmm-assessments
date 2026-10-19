@@ -58,7 +58,18 @@ export default async function AssessmentLanding({ params, searchParams }: { para
         );
         break;
       case "locked":
-        body = (
+        body = e.timedOut ? (
+          <>
+            <div className="timeup-icon" aria-hidden>⏱</div>
+            <h2>Time’s up</h2>
+            <p className="muted">
+              The {meta.timeLimitMinutes}-minute time limit for this assessment ended{e.endedAt ? <> on <b><LocalTime ms={e.endedAt} /></b></> : null}. The
+              answers you had saved were submitted automatically, and the evaluation team will review them.
+            </p>
+            <p className="muted">This link can’t be used to take the assessment again.</p>
+            <div className="notice notice-info">You can retake this assessment after <b>{fmt(e.retakeAfter)}</b>.</div>
+          </>
+        ) : (
           <>
             <h2>You’ve already completed this assessment</h2>
             <p className="muted">Thank you. Your submission has been received and is with the evaluation team.</p>
