@@ -79,7 +79,18 @@ export const ASSESSMENTS: AssessmentMeta[] = [
       "We appreciate your interest in the dental receptionist position and wish you the best of luck with your assessment!",
     ],
   },
-  { slug: "dental-biller", title: "Dental Biller", status: "coming-soon", ...base },
+  {
+    slug: "dental-biller",
+    title: "Dental Biller",
+    status: "coming-soon",
+    ...base,
+    intro: [
+      "This evaluation is designed to assess your knowledge, skills, and abilities in areas critical to the role of a Dental Biller, including insurance verification, claim submission, coding accuracy, payment posting, and handling denials. Each question is designed to measure both your technical knowledge and your ability to apply billing concepts in real-world scenarios.",
+      "Ensure you have a stable internet connection before starting the assessment. Please note that you have 30 minutes to complete this assessment. Manage your time accordingly.",
+      "If you have any questions or require assistance, please contact lead@mymountainmover.com.",
+      "We appreciate your interest in the Dental Biller position and wish you the best of luck with your assessment!",
+    ],
+  },
   { slug: "general-business-va", title: "General Business VA", status: "coming-soon", ...base },
 
 ];
