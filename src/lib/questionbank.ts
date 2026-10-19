@@ -368,22 +368,21 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
     });
   });
 
-  const assessments: ParsedAssessment[] = [];
-  for (const [slug, d] of drafts) {
-    const available = await availableMedia(slug);
+  // Look up every assessment's media and live version at the same time (much faster than one by one).
+  const assessments: ParsedAssessment[] = await Promise.all([...drafts].map(async ([slug, d]) => {
+    const [available, current] = await Promise.all([availableMedia(slug), getContent(slug)]);
     d.sections.forEach((s) => {
       if (!s.questions.length) d.errors.push({ row: 0, message: `Section "${s.title}" has no questions.` });
       [...(s.stimuli ?? []), ...s.questions.flatMap((q) => q.media ?? [])].forEach((st) => {
         if (!available.has(st.file)) d.errors.push({ row: 0, message: `"${st.file}" (section "${s.title}") hasn't been uploaded yet.` });
       });
     });
-    const current = await getContent(slug);
     const content: AssessmentContent = {
       slug,
       intro: (current ?? builtIn(slug))?.intro ?? ASSESSMENTS.find((a) => a.slug === slug)?.intro ?? defaultIntro(d.title),
       sections: d.sections,
     };
-    assessments.push({
+    return {
       slug,
       title: d.title,
       content,
@@ -394,8 +393,8 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
       warnings: d.warnings,
       changed: !current || fingerprint(current) !== fingerprint(content),
       currentVersion: current?.version ?? null,
-    });
-  }
+    };
+  }));
   assessments.sort((a, b) => ASSESSMENTS.findIndex((x) => x.slug === a.slug) - ASSESSMENTS.findIndex((x) => x.slug === b.slug));
   return { assessments, errors };
 }

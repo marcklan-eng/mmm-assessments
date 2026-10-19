@@ -10,6 +10,7 @@ type MediaItem = { name: string; source: "built-in" | "uploaded"; size: number |
 type MediaList = { blobConfigured: boolean; assessments: { slug: string; title: string; items: MediaItem[] }[] };
 type Check = ({ tab: false } | ({ tab: true } & ParseResult)) & { sheetUrl?: string | null };
 
+const CACHE_KEY = "sea-questions-check";
 const fmtDate = (ms: number | null) => (ms ? new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "");
 const fmtSize = (n: number | null) => (n == null ? "" : n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1e3))} KB`);
 
@@ -36,12 +37,25 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
     setChecking(true);
     setErr("");
     try {
-      setCheck(await api<Check>("/api/admin/questions/check"));
+      const r = await api<Check>("/api/admin/questions/check");
+      setCheck(r);
       setCheckedAt(Date.now());
+      try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), r })); } catch { /* storage unavailable */ }
     } catch (e) {
       setErr((e as Error).message);
     }
     setChecking(false);
+  }, []);
+
+  // Show the last result right away (this browser tab only), then re-read the Sheet in the background.
+  useEffect(() => {
+    try {
+      const c = JSON.parse(sessionStorage.getItem(CACHE_KEY) ?? "null");
+      if (c?.r) {
+        setCheck((cur) => cur ?? c.r);
+        setCheckedAt((cur) => cur ?? c.at);
+      }
+    } catch { /* storage unavailable */ }
   }, []);
 
   // Read the Sheet when the page opens, and again whenever you come back to this tab
@@ -135,11 +149,15 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
             <p className="sub">Read from the questions Sheet and checked row by row; updates by itself when you come back from editing the Sheet. Nothing goes live until you publish.</p>
           </div>
           <span className="small muted" aria-live="polite">
-            {checking ? "Reading the Sheet…" : checkedAt ? `Up to date · ${new Date(checkedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : ""}
+            {checking && check ? "Updating from the Sheet…" : checking ? "" : checkedAt ? `Up to date · ${new Date(checkedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : ""}
           </span>
         </div>
 
-        {!check && checking && <p className="small muted" style={{ marginTop: 12 }}>Reading the questions Sheet…</p>}
+        {!check && checking && (
+          <div className="qb-loading" role="status">
+            <span className="spinner" aria-hidden /> Reading the questions Sheet… this takes a few seconds.
+          </div>
+        )}
 
         {check && !check.tab && (
           <div className="notice notice-info" style={{ marginTop: 12 }}>
