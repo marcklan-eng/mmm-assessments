@@ -89,7 +89,7 @@ Questions live in a separate **questions Sheet**, with **one tab per assessment*
 3. **Deploy → New deployment → Web app** (Execute as: Me; Who has access: Anyone). Copy the URL.
 4. In Vercel, add `QUESTIONS_WEBHOOK_URL` with that URL, then redeploy.
 
-**Editing in the app:** on **Questions & media**, click **Check**, then **Edit** next to an assessment. Each question can be edited
+**Editing in the app:** on **Questions & media**, click **Edit** next to an assessment (the page checks the Sheet when it opens; **↻ Refresh** re-reads it). Each question can be edited
 (text, choices, correct answer, question type, points, media), deleted, or a new one added below it (**+ Below**). **+ New section after …** adds a new section (skill area) with its name, description, media and first question. **Save to Sheet**
 first checks the change exactly like **Check** does and writes nothing if it would leave a problem; it also refuses if someone changed
 that row in the Sheet since the editor was opened. Saved changes go live only when you click **Publish**. This needs `Code.gs`

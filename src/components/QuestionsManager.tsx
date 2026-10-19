@@ -42,6 +42,11 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
     setChecking(false);
   }, []);
 
+  // Check the Sheet as soon as the page opens, so Edit / Preview / Publish are ready right away.
+  useEffect(() => {
+    runCheck();
+  }, [runCheck]);
+
   async function seed() {
     setBusy(true);
     setErr("");
@@ -110,11 +115,13 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
       <div className="panel section-gap">
         <div className="dash-head">
           <div>
-            <h2>Check the questions Sheet</h2>
-            <p className="sub">Reads the Sheet, checks every row and shows what would change. Nothing goes live until you publish.</p>
+            <h2>Questions in the Sheet</h2>
+            <p className="sub">Read from the questions Sheet and checked row by row when this page opens. Nothing goes live until you publish.</p>
           </div>
-          <button className="btn btn-primary" onClick={runCheck} disabled={checking}>{checking ? "Checking…" : check ? "Check again" : "Check the questions Sheet"}</button>
+          <button className="btn" onClick={runCheck} disabled={checking} title="Read the Sheet again (after editing it directly)">{checking ? "Reading the Sheet…" : "↻ Refresh"}</button>
         </div>
+
+        {!check && checking && <p className="small muted" style={{ marginTop: 12 }}>Reading the questions Sheet…</p>}
 
         {check && !check.tab && (
           <div className="notice notice-info" style={{ marginTop: 12 }}>
