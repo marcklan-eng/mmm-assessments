@@ -98,6 +98,17 @@ const BUNDLED: Record<string, string[]> = {
     "ma-records-release-request.png",
     "ma-patient-demographics-wiggins.png",
   ],
+  "medical-scribe": [
+    "scribe-encounter.mp4",
+    "transcription-1.mp3",
+    "ms-sec-4-image.png",
+    "patient-history.mp3",
+    "order-entry-assistance.mp3",
+    "ehr-management.mp3",
+    "assessment-and-plan.mp3",
+    "ms-sec-9-image.png",
+    "support-clinical-workflow.mp3",
+  ],
 };
 
 /** Files shipped with the app (private-assets/<slug>/), usable without uploading. */
