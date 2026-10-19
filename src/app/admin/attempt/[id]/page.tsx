@@ -83,7 +83,7 @@ export default async function AttemptDetail({ params }: { params: Promise<{ id: 
                             <td>
                               <div>{q.prompt}</div>
                               <div className="small" style={{ marginTop: 4 }}>
-                                {!chosen ? <span className="pill pill-warn">Blank</span> : ok ? <span className="pill pill-good">✓ Correct{pointsOf(q) > 1 ? ` ${pointsOf(q)}/${pointsOf(q)}` : ""}</span> : isPerRow(q) && pointsEarned(q, chosen) > 0 ? <span className="pill pill-warn">{pointsEarned(q, chosen)}/{pointsOf(q)} rows correct</span> : <span className="pill pill-bad">✗ Incorrect</span>}{" "}
+                                {!chosen ? <span className="pill pill-warn">Blank</span> : ok ? <span className="pill pill-good">✓ Correct{pointsOf(q) > 1 ? ` ${pointsOf(q)}/${pointsOf(q)}` : ""}</span> : pointsOf(q) > 1 && pointsEarned(q, chosen) > 0 ? <span className="pill pill-warn">{pointsEarned(q, chosen)}/{pointsOf(q)} {isPerRow(q) ? "rows" : "points"}</span> : <span className="pill pill-bad">✗ Incorrect</span>}{" "}
                                 {chosen && !isPerRow(q) && <span>{q.options.length ? "Chose" : "Answered"}: {answerText(q, chosen)}</span>}
                                 {isPerRow(q) && q.rows ? (
                                   <ul className="clean" style={{ margin: "6px 0 0" }}>

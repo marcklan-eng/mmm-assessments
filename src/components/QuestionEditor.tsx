@@ -8,21 +8,36 @@ import MediaField, { type MediaItem } from "./MediaField";
 
 type Cells = Record<string, string>;
 type Row = { row: number; cells: Cells };
-type Kind = "single" | "multi" | "text" | "date" | "grid";
+type Kind = "single" | "truefalse" | "dropdown" | "multi" | "text" | "number" | "date" | "blanks" | "order" | "match" | "grid";
 
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
 const KIND_LABEL: Record<Kind, string> = {
   single: "Single choice",
+  truefalse: "True / False",
+  dropdown: "Dropdown (single choice from a list)",
   multi: "Check all that apply",
   text: "Typed answer",
+  number: "Number answer (amounts, totals…)",
   date: "Date (Month / Day / Year)",
+  blanks: "Fill in the blanks",
+  order: "Put in order",
+  match: "Matching (dropdown for each item)",
   grid: "Grid (one choice per row)",
 };
+const TYPE_CELL: Partial<Record<Kind, string>> = { truefalse: "True/False", dropdown: "Dropdown", number: "Number", blanks: "Fill in the blanks", order: "Put in order", match: "Matching" };
+const BLANKS = /_{3,}|\[blank\]/gi;
 
 const lines = (s: string) => s.split("\n").map((x) => x.trim()).filter(Boolean);
 const letters = (s: string) => s.toUpperCase().replace(/[^A-F]/g, "").split("");
 
 function kindOf(c: Cells): Kind {
+  const t = (c["Type"] ?? "").toLowerCase().replace(/[^a-z]/g, "");
+  if (["putinorder", "order", "ordering", "ranking", "rank", "sequence"].includes(t)) return "order";
+  if (["number", "numeric", "numberanswer", "amount"].includes(t)) return "number";
+  if (["dropdown", "select", "dropdownlist"].includes(t)) return "dropdown";
+  if (["matching", "match"].includes(t)) return "match";
+  if (["fillintheblanks", "fillintheblank", "blanks", "blank", "fillin"].includes(t)) return "blanks";
+  if (["truefalse", "tf"].includes(t)) return "truefalse";
   if (lines(c["Rows"] ?? "").length) return "grid";
   const hasChoices = LETTERS.some((L) => (c[L] ?? "").trim());
   if (!hasChoices) return normalizeDate(lines(c["Correct"] ?? "")[0] ?? "") ? "date" : "text";
@@ -154,6 +169,13 @@ function EditForm({ library, reloadLibrary, slug, row, adding, newSection, secti
   const [gridRows, setGridRows] = useState(get("Rows"));
   const [gridAns, setGridAns] = useState<string[]>(letters(get("Correct")));
   const [accepted, setAccepted] = useState(kindOf(c) === "text" ? get("Correct") : "");
+  const k0 = adding ? "single" : kindOf(c);
+  const [orderAns, setOrderAns] = useState<string[]>(k0 === "order" ? letters(get("Correct")) : []);
+  const num0 = (lines(get("Correct"))[0] ?? "").split(/±|\+\/-|\+-/);
+  const [numAns, setNumAns] = useState(k0 === "number" ? (num0[0] ?? "").trim() : "");
+  const [numTol, setNumTol] = useState(k0 === "number" ? (num0[1] ?? "").trim() : "");
+  const [blankAns, setBlankAns] = useState<string[]>(k0 === "blanks" ? get("Correct").split("\n") : []);
+  const [partial, setPartial] = useState(/per\s*(item|blank)|partial/i.test(get("Scoring")));
   const iso = normalizeDate(lines(get("Correct"))[0] ?? "");
   const [date, setDate] = useState(kindOf(c) === "date" && iso ? iso : "");
   const scoring = get("Scoring");
@@ -166,24 +188,38 @@ function EditForm({ library, reloadLibrary, slug, row, adding, newSection, secti
   const [err, setErr] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const usesChoices = kind === "single" || kind === "multi" || kind === "grid";
+  const usesChoices = ["single", "truefalse", "dropdown", "multi", "grid", "order", "match"].includes(kind);
+  const pickOne = kind === "single" || kind === "dropdown" || kind === "truefalse";
+  const isGrid = kind === "grid" || kind === "match";
   const filled = LETTERS.filter((_, i) => choices[i].trim());
   const rowList = lines(gridRows);
+  const orderList = [...orderAns.filter((L) => filled.includes(L)), ...filled.filter((L) => !orderAns.includes(L))];
+  const blankN = (prompt.match(BLANKS) ?? []).length;
+  const pointsCell = Number(points) && Number(points) !== 1 ? String(Number(points)) : "";
+
+  function changeKind(k: Kind) {
+    if (k === "truefalse") setChoices(["True", "False", "", "", "", ""]);
+    else if (kind === "truefalse") setChoices(LETTERS.map(() => ""));
+    setKind(k);
+  }
 
   function build(): Cells {
     const v: Cells = { Question: prompt };
     LETTERS.forEach((L, i) => (v[L] = usesChoices ? choices[i] : ""));
-    v["Rows"] = kind === "grid" ? rowList.join("\n") : "";
-    if (kind === "single") v["Correct"] = single;
+    v["Type"] = TYPE_CELL[kind] ?? "";
+    v["Rows"] = isGrid ? rowList.join("\n") : "";
+    if (pickOne) v["Correct"] = single;
     if (kind === "multi") v["Correct"] = LETTERS.filter((L) => multi.includes(L)).join(", ");
-    if (kind === "grid") v["Correct"] = rowList.map((_, i) => gridAns[i] ?? "").join(", ");
+    if (isGrid) v["Correct"] = rowList.map((_, i) => gridAns[i] ?? "").join(", ");
+    if (kind === "order") v["Correct"] = orderList.join(", ");
+    if (kind === "number") v["Correct"] = numAns.trim() ? (numTol.trim() ? `${numAns.trim()} ± ${numTol.trim()}` : numAns.trim()) : "";
+    if (kind === "blanks") v["Correct"] = Array.from({ length: blankN }, (_, i) => (blankAns[i] ?? "").trim()).join("\n");
     if (kind === "text") v["Correct"] = lines(accepted).join("\n");
     if (kind === "date") {
       const [y, m, d] = date.split("-");
       v["Correct"] = date ? `${m}/${d}/${y}` : "";
     }
-    const p = Number(points);
-    v["Scoring"] = kind === "grid" ? (perRow ? "Per row" : "") : p && p !== 1 ? String(p) : "";
+    v["Scoring"] = isGrid ? (perRow ? "Per row" : "") : (kind === "order" || kind === "blanks") && partial ? "Per item" : pointsCell;
     v["Question Media"] = qMedia;
     if (firstOfSection || newSection) {
       v["Section"] = sec.s;
@@ -241,36 +277,76 @@ function EditForm({ library, reloadLibrary, slug, row, adding, newSection, secti
       )}
 
       <label className="small">Question type
-        <select className="input" value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
+        <select className="input" value={kind} onChange={(e) => changeKind(e.target.value as Kind)}>
           {(Object.keys(KIND_LABEL) as Kind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
         </select>
       </label>
 
       <label className="small">Question<textarea className="input" rows={4} value={prompt} onChange={(e) => setPrompt(e.target.value)} /></label>
+      {kind === "blanks" && (
+        <div className="small muted">Type ___ (three underscores) in the question wherever a blank goes. {blankN ? `This question has ${blankN} blank${blankN === 1 ? "" : "s"}.` : "No blanks yet."}</div>
+      )}
 
       {usesChoices && (
         <fieldset className="qe-choices">
           <legend className="small">
-            {kind === "grid" ? "Columns (e.g. Priority 1, Priority 2…)" : kind === "multi" ? "Choices — tick every correct one" : "Choices — pick the correct one"}
+            {kind === "grid" ? "Columns (e.g. Priority 1, Priority 2…)" : kind === "match" ? "Answers to choose from (each item picks one)" : kind === "order" ? "Items, in the order candidates first see them (mix them up)" : kind === "multi" ? "Choices — tick every correct one" : "Choices — pick the correct one"}
           </legend>
-          {LETTERS.map((L, i) => (i === 0 || choices[i - 1].trim() || choices[i].trim()) && (
+          {LETTERS.map((L, i) => (i === 0 || choices[i - 1].trim() || choices[i].trim()) && !(kind === "truefalse" && i > 1) && (
             <div key={L} className="qe-choice">
-              {kind === "single" && <input type="radio" name={`c-${row.row}`} aria-label={`${L} is correct`} checked={single === L} onChange={() => setSingle(L)} disabled={!choices[i].trim()} />}
+              {pickOne && <input type="radio" name={`c-${row.row}`} aria-label={`${L} is correct`} checked={single === L} onChange={() => setSingle(L)} disabled={!choices[i].trim()} />}
               {kind === "multi" && <input type="checkbox" aria-label={`${L} is correct`} checked={multi.includes(L)} onChange={(e) => setMulti(e.target.checked ? [...multi, L] : multi.filter((x) => x !== L))} disabled={!choices[i].trim()} />}
-              {kind === "grid" && <span />}
+              {(isGrid || kind === "order") && <span />}
               <b className="qb-letter">{L}</b>
-              <textarea className="input" rows={1} value={choices[i]} placeholder={i >= 2 ? "(optional)" : ""} onChange={(e) => setChoices(choices.map((x, k) => (k === i ? e.target.value : x)))} aria-label={`Choice ${L}`} />
+              <textarea className="input" rows={1} readOnly={kind === "truefalse"} value={choices[i]} placeholder={i >= 2 ? "(optional)" : ""} onChange={(e) => setChoices(choices.map((x, k) => (k === i ? e.target.value : x)))} aria-label={`Choice ${L}`} />
             </div>
           ))}
         </fieldset>
       )}
 
-      {kind === "grid" && (
+      {kind === "order" && orderList.length > 1 && (
+        <div className="qe-gridkey">
+          <div className="small"><b>Correct order</b> (first at the top)</div>
+          {orderList.map((L, i) => (
+            <div key={L} className="small qe-orderrow">
+              <span className="qe-ordernum">{i + 1}</span>
+              <span>{choices[LETTERS.indexOf(L)]}</span>
+              <span className="btn-row">
+                <button type="button" className="btn qb-btn" aria-label="Move up" disabled={i === 0} onClick={() => { const n = [...orderList]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; setOrderAns(n); }}>↑</button>
+                <button type="button" className="btn qb-btn" aria-label="Move down" disabled={i === orderList.length - 1} onClick={() => { const n = [...orderList]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; setOrderAns(n); }}>↓</button>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      {(kind === "order" || kind === "blanks") && (
+        <label className="small qe-inline"><input type="checkbox" checked={partial} onChange={(e) => setPartial(e.target.checked)} /> Partial credit: 1 point for each {kind === "order" ? "item in the right place" : "blank answered right"}. Untick for all-or-nothing.</label>
+      )}
+      {kind === "number" && (
+        <div className="filters" style={{ marginTop: 0 }}>
+          <label className="small field">Correct number<input className="input" inputMode="decimal" placeholder="e.g. 125.40" value={numAns} onChange={(e) => setNumAns(e.target.value)} /></label>
+          <label className="small field">Allowed difference (optional)<input className="input" inputMode="decimal" placeholder="e.g. 0.01" value={numTol} onChange={(e) => setNumTol(e.target.value)} /></label>
+        </div>
+      )}
+      {kind === "number" && <div className="small muted">Candidates can type $ signs and commas (e.g. $1,250.00); they’re ignored.</div>}
+      {kind === "blanks" && blankN > 0 && (
+        <div className="qe-gridkey">
+          <div className="small"><b>Correct answer for each blank</b> (separate other accepted answers with |, e.g. CO-45 | CO 45)</div>
+          {Array.from({ length: blankN }, (_, i) => (
+            <label key={i} className="small qe-gridrow">
+              <span>Blank {i + 1}</span>
+              <input className="input" value={blankAns[i] ?? ""} onChange={(e) => setBlankAns(Array.from({ length: Math.max(blankN, blankAns.length) }, (_, k) => (k === i ? e.target.value : blankAns[k] ?? "")))} />
+            </label>
+          ))}
+        </div>
+      )}
+
+      {isGrid && (
         <>
-          <label className="small">Rows (one per line)<textarea className="input" rows={Math.max(3, rowList.length + 1)} value={gridRows} onChange={(e) => setGridRows(e.target.value)} /></label>
+          <label className="small">{kind === "match" ? "Items to match (one per line)" : "Rows (one per line)"}<textarea className="input" rows={Math.max(3, rowList.length + 1)} value={gridRows} onChange={(e) => setGridRows(e.target.value)} /></label>
           {rowList.length > 0 && (
             <div className="qe-gridkey">
-              <div className="small"><b>Correct column for each row</b></div>
+              <div className="small"><b>{kind === "match" ? "Correct answer for each item" : "Correct column for each row"}</b></div>
               {rowList.map((r, i) => (
                 <label key={i} className="small qe-gridrow">
                   <span>{i + 1}. {r}</span>
@@ -295,7 +371,7 @@ function EditForm({ library, reloadLibrary, slug, row, adding, newSection, secti
         <label className="small">Correct date<input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
       )}
 
-      {kind !== "grid" && (
+      {!isGrid && !((kind === "order" || kind === "blanks") && partial) && (
         <label className="small qe-points">Points
           <input className="input" type="number" min={1} max={20} value={points} onChange={(e) => setPoints(e.target.value)} />
         </label>

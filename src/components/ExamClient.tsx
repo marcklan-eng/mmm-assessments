@@ -268,10 +268,46 @@ export default function ExamClient({ slug }: { slug: string }) {
             <fieldset key={q.id} className="question">
               <legend>
                 <span className={`qnum ${q.count > 1 ? "qnum-range" : ""}`}>{numberLabel(q.number, q.count)}</span>
-                <span>{q.prompt}</span>
+                <span>{q.kind === "blanks" ? withBlankNumbers(q.prompt) : q.prompt}</span>
               </legend>
               {q.media.length > 0 && <div className="stimuli q-media">{q.media.map(renderStim)}</div>}
-              {q.input === "date" ? (
+              {q.kind === "number" ? (
+                <TextAnswer
+                  key={q.id}
+                  initial={answers[q.id] ?? ""}
+                  label={q.prompt}
+                  numeric
+                  onType={(v) => setAnswers((a) => ({ ...a, [q.id]: v }))}
+                  onSave={(v) => choose(q.id, v)}
+                />
+              ) : q.kind === "blanks" ? (
+                <BlanksAnswer key={q.id} count={q.blanks} initial={answers[q.id] ?? ""} onSave={(v) => choose(q.id, v)} />
+              ) : q.kind === "order" ? (
+                <OrderAnswer key={q.id} options={q.options} value={answers[q.id]} onSave={(v) => choose(q.id, v)} />
+              ) : q.kind === "dropdown" ? (
+                <div className="dropdown-answer">
+                  <select className="input" aria-label={q.prompt} value={answers[q.id] ?? ""} onChange={(e) => e.target.value && choose(q.id, e.target.value)}>
+                    <option value="" disabled>Choose an answer…</option>
+                    {q.options.map((o) => <option key={o.id} value={o.id}>{o.text}</option>)}
+                  </select>
+                </div>
+              ) : q.kind === "match" && q.rows ? (
+                <div className="match-q" role="group" aria-label={q.prompt}>
+                  <p className="small muted" style={{ margin: "0 0 8px" }}>Choose the matching answer for each item.</p>
+                  {q.rows.map((r, ri) => {
+                    const picked = (answers[q.id] ?? "").split(",")[ri] ?? "";
+                    return (
+                      <label key={r.id} className={`match-row ${picked ? "chosen" : ""}`}>
+                        <span className="match-item">{q.count > 1 && <span className="row-num">{q.number + ri}.</span>}{r.text}</span>
+                        <select className="input" value={picked} onChange={(e) => choose(q.id, setGridRow(answers[q.id], q.rows!.length, ri, e.target.value))} aria-label={`Match for ${r.text}`}>
+                          <option value="">Choose…</option>
+                          {q.options.map((o) => <option key={o.id} value={o.id}>{o.text}</option>)}
+                        </select>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : q.input === "date" ? (
                 <DateAnswer key={q.id} initial={answers[q.id] ?? ""} label={q.prompt} onSave={(v) => choose(q.id, v)} />
               ) : q.options.length === 0 ? (
                 <TextAnswer
@@ -467,7 +503,7 @@ function ImageViewer({ stim, group, onPick, onClose }: { stim: Stim; group: Stim
 }
 
 /** Typed answer: saved after a short pause in typing and when the field loses focus. */
-function TextAnswer({ initial, label, onType, onSave }: { initial: string; label: string; onType: (v: string) => void; onSave: (v: string) => void }) {
+function TextAnswer({ initial, label, onType, onSave, numeric }: { initial: string; label: string; onType: (v: string) => void; onSave: (v: string) => void; numeric?: boolean }) {
   const [value, setValue] = useState(initial);
   const saved = useRef(initial);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -485,8 +521,9 @@ function TextAnswer({ initial, label, onType, onSave }: { initial: string; label
         type="text"
         className="input"
         aria-label={label}
-        placeholder="Type your answer"
-        maxLength={200}
+        placeholder={numeric ? "Type a number" : "Type your answer"}
+        inputMode={numeric ? "decimal" : undefined}
+        maxLength={numeric ? 40 : 200}
         autoComplete="off"
         spellCheck={false}
         value={value}
@@ -499,6 +536,83 @@ function TextAnswer({ initial, label, onType, onSave }: { initial: string; label
         }}
         onBlur={() => flush(value)}
       />
+    </div>
+  );
+}
+
+/** "Codes ___ and ___" → "Codes (1) ______ and (2) ______". */
+function withBlankNumbers(prompt: string) {
+  let i = 0;
+  return prompt.replace(/_{3,}|\[blank\]/gi, () => `(${++i}) ______`);
+}
+
+/** Fill in the blanks: one input per blank, saved one per line. */
+function BlanksAnswer({ count, initial, onSave }: { count: number; initial: string; onSave: (v: string) => void }) {
+  const [vals, setVals] = useState(() => Array.from({ length: count }, (_, i) => initial.split("\n")[i] ?? ""));
+  const saved = useRef(vals.join("\n"));
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flush = (v: string[]) => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    const j = v.join("\n");
+    if (j === saved.current) return;
+    saved.current = j;
+    onSave(j);
+  };
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  return (
+    <div className="blanks-answer">
+      {vals.map((v, i) => (
+        <label key={i}>
+          <span>({i + 1})</span>
+          <input
+            className="input"
+            value={v}
+            maxLength={120}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder={`Blank ${i + 1}`}
+            onChange={(e) => {
+              const next = vals.map((x, k) => (k === i ? e.target.value : x));
+              setVals(next);
+              if (timer.current) clearTimeout(timer.current);
+              timer.current = setTimeout(() => flush(next), 900);
+            }}
+            onBlur={() => flush(vals)}
+          />
+        </label>
+      ))}
+    </div>
+  );
+}
+
+/** Put in order: move items up or down; saved after every move. */
+function OrderAnswer({ options, value, onSave }: { options: { id: string; text: string }[]; value: string | undefined; onSave: (v: string) => void }) {
+  const ids = value ? value.split(",") : options.map((o) => o.id);
+  const byId = new Map(options.map((o) => [o.id, o]));
+  const move = (i: number, d: number) => {
+    const n = [...ids];
+    [n[i], n[i + d]] = [n[i + d], n[i]];
+    onSave(n.join(","));
+  };
+  return (
+    <div className="order-answer">
+      <p className="small muted" style={{ margin: "0 0 8px" }}>Use the arrows to put these in the correct order (first at the top).</p>
+      <ol>
+        {ids.map((id, i) => (
+          <li key={id} className={value ? "chosen" : ""}>
+            <span className="order-pos">{i + 1}</span>
+            <span className="order-text">{byId.get(id)?.text}</span>
+            <span className="order-btns">
+              <button type="button" className="btn" aria-label={`Move “${byId.get(id)?.text}” up`} disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
+              <button type="button" className="btn" aria-label={`Move “${byId.get(id)?.text}” down`} disabled={i === ids.length - 1} onClick={() => move(i, 1)}>↓</button>
+            </span>
+          </li>
+        ))}
+      </ol>
+      {!value && (
+        <button type="button" className="btn order-keep" onClick={() => onSave(ids.join(","))}>This order is correct</button>
+      )}
     </div>
   );
 }

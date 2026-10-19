@@ -1,11 +1,46 @@
 // Answer helpers shared by the server and the browser (no answer keys in here).
 import type { Option } from "./types";
 
-type Q = { options: Option[]; rows?: Option[] | null; scoring?: "per-row"; multi?: boolean | null; points?: number | null };
+type Kind = "order" | "number" | "dropdown" | "match" | "blanks";
+type Q = { options: Option[]; rows?: Option[] | null; scoring?: "per-row" | "partial"; multi?: boolean | null; points?: number | null; kind?: Kind | null; prompt?: string };
+
+/** Blanks in a fill-in-the-blanks question: "___" (3 or more underscores) or "[blank]". */
+export const BLANK_RE = /_{3,}|\[blank\]/gi;
+export function blankCount(prompt: string | undefined): number {
+  return (prompt ?? "").match(BLANK_RE)?.length ?? 0;
+}
+/** Fill-in-the-blanks answers are saved one per line. */
+export const splitBlanks = (v: string | undefined, n: number) => {
+  const parts = (v ?? "").split("\n");
+  return Array.from({ length: n }, (_, i) => parts[i] ?? "");
+};
+
+/** Reads a number the way people type amounts: "$1,234.50", " 125.4 ", "-3", "12%". */
+export function parseNumber(s: string): number | null {
+  const t = s.trim().replace(/[$,%\s]/g, "").replace(/^\((.*)\)$/, "-$1");
+  if (!/^[-+]?(\d+\.?\d*|\.\d+)$/.test(t)) return null;
+  return Number(t);
+}
+/** Accepted number, with an optional allowed difference: "125.40", "125.40 ± 0.01", "125.40 +/- 0.01". */
+export function parseAcceptedNumber(line: string): { value: number; tol: number } | null {
+  const [v, tol] = line.split(/±|\+\/-|\+-/);
+  const value = parseNumber(v ?? "");
+  if (value == null) return null;
+  const t = tol != null ? parseNumber(tol) : 0;
+  if (t == null || t < 0) return null;
+  return { value, tol: t };
+}
+export function numberMatches(accepted: string, value: string): boolean {
+  const v = parseNumber(value);
+  if (v == null) return false;
+  return accepted.split("\n").map((l) => parseAcceptedNumber(l)).some((a) => a != null && Math.abs(v - a.value) <= a.tol + 1e-9);
+}
 
 /** True when every part of the question has an answer. */
 export function isAnswered(q: Q, value: string | undefined): boolean {
   if (!value) return false;
+  if (q.kind === "order") return value.split(",").filter(Boolean).length === q.options.length;
+  if (q.kind === "blanks") return splitBlanks(value, blankCount(q.prompt)).every((x) => x.trim());
   if (isTextQuestion(q)) return Boolean(value.trim());
   if (!q.rows?.length) return true;
   const parts = value.split(",");
@@ -20,6 +55,8 @@ export function isTextQuestion(q: Q): boolean {
 /** Readable form of an answer, e.g. "Under-coding" or "Row A → Under-coding; Row B → Bundling". */
 export function answerText(q: Q, value: string | undefined): string {
   if (!value) return "";
+  if (q.kind === "order") return value.split(",").filter(Boolean).map((id, i) => `${i + 1}. ${short(q.options.find((o) => o.id === id)?.text ?? id)}`).join("  ");
+  if (q.kind === "blanks") return splitBlanks(value, blankCount(q.prompt)).map((x, i) => `(${i + 1}) ${x.split("|").map((y) => y.trim()).filter(Boolean).join(" or ") || "—"}`).join("  ");
   if (isTextQuestion(q)) return value.split("\n").map((x) => x.trim()).filter(Boolean).join(" or ");
   if (q.multi) return value.split(",").filter(Boolean).map((id) => q.options.find((o) => o.id === id)?.text ?? id).join("; ");
   if (!q.rows?.length) return q.options.find((o) => o.id === value)?.text ?? "";
@@ -76,7 +113,7 @@ const plain = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
 /** A typed-answer question whose accepted answer is a date: candidates pick Month / Day / Year. */
 export function isDateQuestion(q: Q & { answer: string }): boolean {
-  if (!isTextQuestion(q)) return false;
+  if (!isTextQuestion(q) || q.kind) return false;
   const first = q.answer.split("\n").map((a) => a.trim()).find(Boolean);
   return Boolean(first && normalizeDate(first));
 }
@@ -96,8 +133,17 @@ export function textMatches(accepted: string, value: string): boolean {
     });
 }
 
+/** Fill in the blanks: which blanks are right. */
+function blanksRight(q: Q & { answer: string }, value: string): boolean[] {
+  const n = blankCount(q.prompt);
+  const want = splitBlanks(q.answer, n), got = splitBlanks(value, n);
+  return want.map((w, i) => textMatches(w.split("|").join("\n"), got[i]));
+}
+
 export function isCorrect(q: Q & { answer: string }, value: string | undefined): boolean {
   if (!value) return false;
+  if (q.kind === "number") return numberMatches(q.answer, value);
+  if (q.kind === "blanks") return blanksRight(q, value).every(Boolean);
   if (isTextQuestion(q)) return textMatches(q.answer, value);
   if (q.multi) return toggleChoice(value, "").split(",").join() === toggleChoice(q.answer, "").split(",").join();
   return value === q.answer;
@@ -105,7 +151,10 @@ export function isCorrect(q: Q & { answer: string }, value: string | undefined):
 
 /** Points a question is worth: one per row for a per-row grid, otherwise 1. */
 export function pointsOf(q: Q): number {
-  return isPerRow(q) ? q.rows!.length : q.points && q.points > 0 ? q.points : 1;
+  if (isPerRow(q)) return q.rows!.length;
+  if (q.scoring === "partial" && q.kind === "order") return q.options.length;
+  if (q.scoring === "partial" && q.kind === "blanks") return blankCount(q.prompt);
+  return q.points && q.points > 0 ? q.points : 1;
 }
 
 /** A matching grid scored 1 point per row (each row is numbered as its own question). */
@@ -120,6 +169,11 @@ export function pointsEarned(q: Q & { answer: string }, value: string | undefine
     const want = q.answer.split(","), got = value.split(",");
     return want.filter((w, i) => w && got[i] === w).length;
   }
+  if (q.scoring === "partial" && q.kind === "order") {
+    const want = q.answer.split(","), got = value.split(",");
+    return want.filter((w, i) => got[i] === w).length;
+  }
+  if (q.scoring === "partial" && q.kind === "blanks") return blanksRight(q, value).filter(Boolean).length;
   return isCorrect(q, value) ? pointsOf(q) : 0;
 }
 

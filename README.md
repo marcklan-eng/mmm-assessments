@@ -89,6 +89,18 @@ Questions live in a separate **questions Sheet**, with **one tab per assessment*
 3. **Deploy → New deployment → Web app** (Execute as: Me; Who has access: Anyone). Copy the URL.
 4. In Vercel, add `QUESTIONS_WEBHOOK_URL` with that URL, then redeploy.
 
+**Type column (optional).** Leave it blank and the type is worked out from the other columns (single choice, check all that apply,
+typed answer, date, grid). Or set it to one of these:
+
+| Type | A–F | Correct | Rows | Scoring |
+|---|---|---|---|---|
+| `True/False` | A = True, B = False | `A` or `B` | — | blank or points |
+| `Dropdown` | the choices | one letter | — | blank or points |
+| `Number` | empty | the number, e.g. `125.40`, or `125.40 ± 0.01` to allow a small difference ($ and commas are ignored) | — | blank or points |
+| `Fill in the blanks` | empty | one line per blank (mark blanks in the question with `___`); other accepted answers on the same line split by `|` | — | `Per item` = 1 point per blank, blank = all or nothing |
+| `Put in order` | the items, mixed up (candidates first see this order) | the letters in the right order, e.g. `B, D, A, C` | — | `Per item` = 1 point per item in the right place, blank = all or nothing |
+| `Matching` | the answers to choose from | one letter per item, in order | the items to match, one per line | `Per row` = 1 point per item (numbered separately), blank = all or nothing |
+
 **Editing in the app:** on **Questions & media**, click **Edit** next to an assessment (the page reads the Sheet when it opens and again whenever you come back to its tab). Each question can be edited
 (text, choices, correct answer, question type, points, media), deleted, or a new one added below it (**+ Below**). **+ New section after …** adds a new section (skill area) with its name, description, media and first question. **Save to Sheet**
 first checks the change exactly like **Check** does and writes nothing if it would leave a problem; it also refuses if someone changed

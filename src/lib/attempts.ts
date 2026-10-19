@@ -4,7 +4,7 @@ import type { ActivityType, Attempt } from "./types";
 import { getMeta, RETAKE_MONTHS } from "@/content/assessments";
 import { getContent, allQuestions, currentVersion } from "@/content";
 import { appendToSheet, sheetConfigured } from "./google";
-import { isDateQuestion, isTextQuestion, normalizeDate, itemsOf, pointsEarned, toggleChoice, totalPoints } from "@/content/answers";
+import { blankCount, isDateQuestion, isTextQuestion, normalizeDate, itemsOf, pointsEarned, toggleChoice, totalPoints } from "@/content/answers";
 import type { SessionUser } from "./auth";
 import { accessWindow } from "./access";
 
@@ -108,7 +108,22 @@ export async function saveAnswer(a: Attempt, questionId: string, optionId: strin
   if (!q) throw new HttpError(400, "Unknown question");
   const valid = (id: string) => q.options.some((o) => o.id === id);
   if (optionId === null) delete a.answers[questionId];
-  else if (isDateQuestion(q)) {
+  else if (q.kind === "number") {
+    const v = optionId.trim().slice(0, 40);
+    if (v) a.answers[questionId] = v;
+    else delete a.answers[questionId];
+  } else if (q.kind === "blanks") {
+    const n = blankCount(q.prompt);
+    const parts = optionId.split("\n");
+    if (parts.length > n) throw new HttpError(400, "Too many blanks");
+    const v = Array.from({ length: n }, (_, i) => (parts[i] ?? "").replace(/\s+/g, " ").slice(0, 120));
+    if (v.some((x) => x.trim())) a.answers[questionId] = v.join("\n");
+    else delete a.answers[questionId];
+  } else if (q.kind === "order") {
+    const ids = optionId.split(",");
+    if (ids.length !== q.options.length || new Set(ids).size !== ids.length || ids.some((id) => !valid(id))) throw new HttpError(400, "Invalid order");
+    a.answers[questionId] = ids.join(",");
+  } else if (isDateQuestion(q)) {
     // Picked from Month / Day / Year dropdowns, saved as MM/DD/YYYY.
     if (!/^\d{2}\/\d{2}\/\d{4}$/.test(optionId) || !normalizeDate(optionId)) throw new HttpError(400, "Invalid date");
     a.answers[questionId] = optionId;
@@ -230,6 +245,8 @@ export async function publicView(a: Attempt) {
             rows: q.rows ?? null,
             multi: q.multi ?? null,
             input: isDateQuestion(q) ? ("date" as const) : null,
+            kind: q.kind ?? null,
+            blanks: q.kind === "blanks" ? blankCount(q.prompt) : 0,
             media: (q.media ?? []).map((st) => ({ ...st, url: `/api/asset/${a.slug}/${encodeURIComponent(st.file)}?v=${a.version ?? 0}` })),
           };
         }),

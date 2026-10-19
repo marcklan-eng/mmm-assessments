@@ -19,7 +19,7 @@ import { ASSESSMENTS } from "@/content/assessments";
 import { allQuestions, builtIn, getContent, type QuestionSet } from "@/content";
 import type { AssessmentContent, Section, Stimulus } from "@/content/types";
 import { availableMedia, mediaKind } from "./media";
-import { totalItems, totalPoints } from "@/content/answers";
+import { blankCount, parseAcceptedNumber, totalItems, totalPoints } from "@/content/answers";
 
 export const QUESTION_HEADERS = [
   "Assessment",
@@ -37,6 +37,7 @@ export const QUESTION_HEADERS = [
   "Rows",
   "Scoring",
   "Question Media",
+  "Type",
 ];
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
@@ -85,7 +86,7 @@ function parseMedia(cell: string, row: number, issues: Issue[]): Stimulus[] {
 
 /** Strip volatile fields so two sets can be compared. */
 function fingerprint(c: AssessmentContent) {
-  return JSON.stringify(c.sections.map((s) => [s.title, s.description, s.stimuli, s.layout ?? null, s.questions.map((q) => [q.prompt, q.options, q.rows ?? null, q.scoring ?? null, q.multi ?? null, q.points ?? null, q.media ?? null, q.answer])]));
+  return JSON.stringify(c.sections.map((s) => [s.title, s.description, s.stimuli, s.layout ?? null, s.questions.map((q) => [q.prompt, q.options, q.rows ?? null, q.scoring ?? null, q.multi ?? null, q.points ?? null, q.media ?? null, q.kind ?? null, q.answer])]));
 }
 
 /** Header for a per-assessment tab (no Assessment column needed). */
@@ -212,6 +213,91 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
     }
     const qMediaCell = cell(r, "Question Media");
     const qMedia = qMediaCell ? parseMedia(qMediaCell, rowNum, d.errors) : [];
+    const err = (message: string) => d!.errors.push({ row: rowNum, where: whereOf(rowNum), message });
+    const typeRaw = cell(r, "Type");
+    const typeKey = typeRaw.toLowerCase().replace(/[^a-z]/g, "");
+    const TYPES: Record<string, string> = {
+      putinorder: "order", order: "order", ordering: "order", ranking: "order", rank: "order", sequence: "order",
+      number: "number", numeric: "number", numberanswer: "number", amount: "number",
+      dropdown: "dropdown", select: "dropdown", dropdownlist: "dropdown",
+      matching: "match", match: "match",
+      fillintheblanks: "blanks", fillintheblank: "blanks", blanks: "blanks", blank: "blanks", fillin: "blanks",
+      truefalse: "truefalse", tf: "truefalse",
+      "": "", singlechoice: "", multiplechoice: "", checkall: "", checkallthatapply: "", typedanswer: "", typed: "", shortanswer: "", date: "", grid: "",
+    };
+    const kind = TYPES[typeKey];
+    if (kind === undefined) {
+      err(`Type "${typeRaw}" isn't a question type. Use Put in order, Number, Dropdown, Matching, Fill in the blanks, True/False, or leave it blank.`);
+      return;
+    }
+    const scoringRaw = cell(r, "Scoring");
+    const scoringKey = scoringRaw.toLowerCase().replace(/[^a-z]/g, "");
+    const ptsM = scoringRaw.match(/^\s*(\d+(?:\.\d+)?)\s*(?:points?|pts?)?\s*$/i);
+    const fixedPts = ptsM ? Number(ptsM[1]) : null;
+    const own = kind === "order" || kind === "blanks" || kind === "number"; // the generic path checks Scoring for the others
+    if (own && fixedPts != null && !(fixedPts > 0 && fixedPts <= 20)) err(`Scoring "${scoringRaw}" should be a number of points between 1 and 20.`);
+    const partial = ["peritem", "perblank", "perrow", "partial", "partialcredit", "eachitem", "perposition"].includes(scoringKey);
+    if (own && scoringRaw && fixedPts == null && !partial && !["allornothing", "all", "default", "perrow", "eachrow", "perrows", "oneperrow"].includes(scoringKey)) {
+      err(`Scoring should be "Per item", a number of points (e.g. 2), or blank (1 point), not "${scoringRaw}".`);
+    }
+    const qNum = () => d!.sections.reduce((t, s2) => t + s2.questions.length, 0) + 1;
+    const seen = () => {
+      if (d!.seen.has(norm(prompt))) d!.warnings.push({ row: rowNum, where: whereOf(rowNum), message: "This question text appears more than once." });
+      d!.seen.add(norm(prompt));
+    };
+    const anyChoice = LETTERS.some((L) => cell(r, L));
+    if (kind === "number" || kind === "blanks") {
+      if (anyChoice) err(`A ${kind === "number" ? "Number" : "Fill in the blanks"} question has no choices: leave A–F empty.`);
+      const lines = cell(r, "Correct").split("\n").map((x) => x.trim()).filter(Boolean);
+      if (kind === "number") {
+        if (!lines.length) err("Correct is blank. Enter the right number, e.g. 125.40 (or 125.40 ± 0.01 to allow a small difference).");
+        const bad = lines.find((l) => !parseAcceptedNumber(l));
+        if (bad) err(`"${bad}" in Correct isn't a number. Use e.g. 125.40, $1,250 or 125.40 ± 0.01.`);
+        if (partial) d.warnings.push({ row: rowNum, where: whereOf(rowNum), message: "Per item scoring doesn't apply to a Number question; ignored." });
+      } else {
+        const n = blankCount(prompt);
+        if (!n) err('Mark each blank in the question with ___ (three underscores).');
+        else if (lines.length !== n) err(`The question has ${n} blank${n === 1 ? "" : "s"}, so Correct needs ${n} line${n === 1 ? "" : "s"} (one per blank; separate other accepted answers with |), not ${lines.length}.`);
+      }
+      seen();
+      const n = qNum();
+      section.questions.push({
+        id: `q${String(n).padStart(2, "0")}`, prompt, options: [], kind,
+        ...(kind === "blanks" && partial ? { scoring: "partial" as const } : {}),
+        ...(fixedPts != null && fixedPts !== 1 && !(kind === "blanks" && partial) ? { points: fixedPts } : {}),
+        ...(qMedia.length ? { media: qMedia } : {}),
+        answer: lines.join("\n"),
+      });
+      return;
+    }
+    if (kind === "order") {
+      const items = LETTERS.map((L) => ({ L, t: cell(r, L) })).filter((x) => x.t);
+      const want = cell(r, "Correct").toUpperCase().replace(/[^A-F]/g, "").split("").filter(Boolean);
+      if (items.length < 2) err("Put in order needs at least 2 items in A–F (in the order candidates first see them).");
+      if (cell(r, "Rows")) err("Put in order doesn't use Rows: put the items in A–F.");
+      if (want.length !== items.length || new Set(want).size !== want.length || want.some((L) => !items.some((x) => x.L === L))) {
+        err(`Correct must list every item once, in the right order, e.g. "${items.map((x) => x.L).reverse().join(", ")}".`);
+      } else if (want.join() === items.map((x) => x.L).join()) {
+        d.warnings.push({ row: rowNum, where: whereOf(rowNum), message: "The items in A–F are already in the correct order, so candidates would see the answer. Mix them up in A–F." });
+      }
+      seen();
+      const n = qNum();
+      section.questions.push({
+        id: `q${String(n).padStart(2, "0")}`, prompt, kind: "order",
+        options: items.map((x) => ({ id: x.L.toLowerCase(), text: x.t })),
+        ...(partial ? { scoring: "partial" as const } : {}),
+        ...(fixedPts != null && fixedPts !== 1 && !partial ? { points: fixedPts } : {}),
+        ...(qMedia.length ? { media: qMedia } : {}),
+        answer: want.map((L) => L.toLowerCase()).join(","),
+      });
+      return;
+    }
+    if (kind === "truefalse") {
+      const filledTF = LETTERS.map((L) => cell(r, L)).filter(Boolean);
+      if (filledTF.length !== 2) err("A True/False question has exactly 2 choices: A = True, B = False.");
+    }
+    if (kind === "dropdown" && (cell(r, "Rows") || cell(r, "Correct").toUpperCase().replace(/[^A-F]/g, "").length > 1)) err("A Dropdown question has one correct letter and no Rows.");
+    if (kind === "match" && !cell(r, "Rows")) err("A Matching question needs the items to match in Rows (one per line) and the answers in A–F.");
     const choices = LETTERS.map((L) => ({ letter: L, text: cell(r, L) }));
     const lastFilled = Math.max(...choices.map((c, k) => (c.text ? k : -1)));
     const gap = choices.slice(0, lastFilled + 1).find((c) => !c.text);
@@ -273,6 +359,7 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
       ...(!gridRows.length && correct.length > 1 ? { multi: true } : {}),
       ...(pts != null && pts > 0 && pts !== 1 && !perRow ? { points: pts } : {}),
       ...(qMedia.length ? { media: qMedia } : {}),
+      ...(kind === "dropdown" || kind === "match" ? { kind: kind as "dropdown" | "match" } : {}),
       answer: gridRows.length
         ? [...correct].map((L) => L.toLowerCase()).join(",")
         : correct.length > 1
@@ -331,10 +418,11 @@ export async function seedTabs(): Promise<{ name: string; rows: string[][] }[]> 
           first ? [...(s.stimuli ?? []).map((st) => `${st.file} | ${st.caption}`), ...(s.layout ? ["Layout: side by side"] : [])].join("\n") : "",
           q.prompt,
           ...LETTERS.map((L) => q.options[letters.indexOf(L)]?.text ?? ""),
-          !q.options.length ? q.answer : q.rows?.length || q.multi ? q.answer.toUpperCase().split(",").join(", ") : q.answer.toUpperCase(),
+          !q.options.length ? q.answer : q.rows?.length || q.multi || q.kind === "order" ? q.answer.toUpperCase().split(",").join(", ") : q.answer.toUpperCase(),
           (q.rows ?? []).map((x) => x.text).join("\n"),
-          q.scoring === "per-row" ? "Per row" : q.points ? String(q.points) : "",
+          q.scoring === "per-row" ? "Per row" : q.scoring === "partial" ? "Per item" : q.points ? String(q.points) : "",
           (q.media ?? []).map((st) => `${st.file} | ${st.caption}`).join("\n"),
+          ({ order: "Put in order", number: "Number", dropdown: "Dropdown", match: "Matching", blanks: "Fill in the blanks" } as Record<string, string>)[q.kind ?? ""] ?? "",
         ]);
       });
     }

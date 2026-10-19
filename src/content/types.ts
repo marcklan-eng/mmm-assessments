@@ -12,8 +12,15 @@ export type Question = {
   /** Matching grid: one row per item to match; candidates pick one option (column) per row.
    *  Scored all-or-nothing as a single point. */
   rows?: Option[];
-  /** Grid scoring: "per-row" = 1 point for each row answered correctly. Default: 1 point, all or nothing. */
-  scoring?: "per-row";
+  /** "per-row" (grid / matching) = 1 point for each row, each row numbered as its own question.
+   *  "partial" (put in order / fill in the blanks) = 1 point for each item in the right place or blank right, one number.
+   *  Default: all or nothing. */
+  scoring?: "per-row" | "partial";
+  /** Special question types (otherwise inferred: choices, check-all, typed, date, grid):
+   *  "order" = put the choices in order (answer "c,a,d,b"); "number" = typed number (answer "125.40" or "125.40 ± 0.01");
+   *  "dropdown" = single choice shown as a dropdown; "match" = grid shown as one dropdown per row;
+   *  "blanks" = fill in the blanks marked ___ in the question (answer: one line per blank, alternatives split by |). */
+  kind?: "order" | "number" | "dropdown" | "match" | "blanks";
   /** "Check all that apply": answer is the sorted set of correct option ids ("a,d"). 1 point, exact set. */
   multi?: boolean;
   /** Points for a right answer (default 1). Not used by per-row grids, which score 1 per row. */

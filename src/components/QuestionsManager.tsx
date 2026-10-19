@@ -1,5 +1,5 @@
 "use client";
-import { isDateQuestion, itemsOf, numberLabel } from "@/content/answers";
+import { isDateQuestion, itemsOf, numberLabel, pointsOf } from "@/content/answers";
 import { useCallback, useEffect, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import type { ParseResult, ParsedAssessment } from "@/lib/questionbank";
@@ -256,7 +256,7 @@ function Preview({ a }: { a: ParsedAssessment }) {
             n += itemsOf(q);
             return (
               <div key={q.id} className="qb-q">
-                <div><b>{numberLabel(start, itemsOf(q))}.</b> {q.prompt}{q.points && q.points > 1 && !q.rows?.length ? <span className="pill pill-neutral" style={{ marginLeft: 8 }}>{q.points} points</span> : null}</div>
+                <div><b>{numberLabel(start, itemsOf(q))}.</b> {q.prompt}{q.kind === "dropdown" ? <span className="pill pill-neutral" style={{ marginLeft: 8 }}>Dropdown</span> : q.kind === "match" ? <span className="pill pill-neutral" style={{ marginLeft: 8 }}>Matching</span> : null}{pointsOf(q) > 1 && !q.rows?.length ? <span className="pill pill-neutral" style={{ marginLeft: 8 }}>{pointsOf(q)} points</span> : null}</div>
                 {(q.media ?? []).length > 0 && (
                   <div className="qb-media">
                     {(q.media ?? []).map((st) => (
@@ -269,7 +269,19 @@ function Preview({ a }: { a: ParsedAssessment }) {
                   </div>
                 )}
                 {q.multi && <div className="small muted" style={{ marginTop: 6 }}>Check all that apply · 1 point when exactly the marked choices are checked</div>}
-                {q.options.length === 0 ? (
+                {q.kind === "number" ? (
+                  <div className="small" style={{ marginTop: 6 }}>Number answer ($ and commas ignored). Accepted: <span className="pill pill-good">✓ {q.answer.split("\n").join(" or ")}</span></div>
+                ) : q.kind === "blanks" ? (
+                  <div className="small" style={{ marginTop: 6 }}>
+                    Fill in the blanks{q.scoring === "partial" ? " · 1 point per blank" : " · all blanks must be right"}:
+                    <ol style={{ margin: "4px 0 0" }}>{q.answer.split("\n").map((l, i) => <li key={i}><span className="pill pill-good">✓ {l.split("|").map((x) => x.trim()).join(" or ")}</span></li>)}</ol>
+                  </div>
+                ) : q.kind === "order" ? (
+                  <div className="small" style={{ marginTop: 6 }}>
+                    Put in order{q.scoring === "partial" ? " · 1 point per item in the right place" : " · all items must be in the right place"}. Candidates first see: {q.options.map((o) => o.text).join(" · ")}
+                    <ol style={{ margin: "4px 0 0" }}>{q.answer.split(",").map((id) => <li key={id} className="correct">{q.options.find((o) => o.id === id)?.text}</li>)}</ol>
+                  </div>
+                ) : q.options.length === 0 ? (
                   <div className="small" style={{ marginTop: 6 }}>
                     {isDateQuestion(q) ? "Date answer (Month / Day / Year dropdowns)." : "Typed answer."} Accepted: <span className="pill pill-good">✓ {q.answer.split("\n").filter(Boolean).join(" or ")}</span>
                   </div>

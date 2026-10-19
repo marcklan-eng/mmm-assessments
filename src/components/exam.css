@@ -116,3 +116,21 @@
 .stimuli-row .stim-head { flex-wrap: wrap; gap: 6px; }
 .stimuli-row .stim-full figcaption { font-size: 13px; }
 @media (max-width: 640px) { .stimuli.stimuli-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Number / dropdown / matching / fill in the blanks / put in order */
+.dropdown-answer select { max-width: 520px; }
+.match-q { display: grid; gap: 8px; }
+.match-row { display: grid; grid-template-columns: 1fr minmax(180px, 320px); gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; }
+.match-row.chosen { border-color: var(--brand); }
+.match-item { font-weight: 500; }
+.blanks-answer { display: grid; gap: 8px; max-width: 520px; }
+.blanks-answer label { display: grid; grid-template-columns: 36px 1fr; gap: 8px; align-items: center; }
+.blanks-answer span { font-weight: 600; color: var(--text-2); }
+.order-answer ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.order-answer li { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.order-answer li.chosen { border-color: var(--brand); }
+.order-pos { width: 26px; height: 26px; border-radius: 999px; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: 13px; }
+.order-btns { display: flex; gap: 4px; }
+.order-btns .btn { min-height: 32px; padding: 2px 10px; }
+.order-keep { margin-top: 8px; }
+@media (max-width: 640px) { .match-row { grid-template-columns: 1fr; } }

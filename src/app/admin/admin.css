@@ -133,3 +133,5 @@ tr.muted td { color: var(--text-3); }
 /* Long candidate lists scroll inside their panel, so the page doesn't grow with every candidate. */
 .candidates-scroll { max-height: 640px; overflow-y: auto; }
 .candidates-scroll thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); box-shadow: inset 0 -1px 0 var(--border); }
+.qe-orderrow { display: grid; grid-template-columns: 28px 1fr auto; gap: 8px; align-items: center; padding: 4px 0; }
+.qe-ordernum { width: 24px; height: 24px; border-radius: 999px; display: grid; place-items: center; background: var(--surface-2); border: 1px solid var(--border); font-weight: 700; }
