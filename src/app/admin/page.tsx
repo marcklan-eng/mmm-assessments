@@ -244,10 +244,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 </div>
               )}
 
+              <ReopenLink assessments={ASSESSMENTS.map((a) => ({ slug: a.slug, title: a.title }))} initial={await expirySetting()} canEdit={await isEditor(user.email)} />
+
               <div className="panel section-gap">
                 <h2>Candidates</h2>
-                <p className="sub">{list.length} attempt{list.length === 1 ? "" : "s"} · click a name for answers and activity</p>
-                <div className="table-scroll">
+                <p className="sub">{list.length} attempt{list.length === 1 ? "" : "s"} · click a name for answers and activity{list.length > 15 ? " · scroll inside the list for more" : ""}</p>
+                <div className="table-scroll candidates-scroll">
                   <table className="data">
                     <thead>
                       <tr>
@@ -283,7 +285,6 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   </table>
                 </div>
               </div>
-              <ReopenLink assessments={ASSESSMENTS.map((a) => ({ slug: a.slug, title: a.title }))} initial={await expirySetting()} canEdit={await isEditor(user.email)} />
             </main>
           </>
         );

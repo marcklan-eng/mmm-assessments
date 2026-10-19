@@ -129,3 +129,7 @@ tr.muted td { color: var(--text-3); }
 .qe-addsec:hover:not(:disabled) { background: var(--surface); color: var(--text); }
 .qe-addsec:disabled { opacity: .5; cursor: default; }
 .qe-newsec { display: grid; gap: 10px; padding-bottom: 10px; border-bottom: 1px dashed var(--border); }
+
+/* Long candidate lists scroll inside their panel, so the page doesn't grow with every candidate. */
+.candidates-scroll { max-height: 640px; overflow-y: auto; }
+.candidates-scroll thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); box-shadow: inset 0 -1px 0 var(--border); }
