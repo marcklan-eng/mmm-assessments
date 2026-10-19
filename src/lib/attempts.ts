@@ -4,7 +4,7 @@ import type { ActivityType, Attempt } from "./types";
 import { getMeta, RETAKE_MONTHS } from "@/content/assessments";
 import { getContent, allQuestions, currentVersion } from "@/content";
 import { appendToSheet, sheetConfigured } from "./google";
-import { isDateQuestion, isTextQuestion, normalizeDate, pointsEarned, pointsOf, totalPoints } from "@/content/answers";
+import { isDateQuestion, isTextQuestion, normalizeDate, pointsEarned, pointsOf, toggleChoice, totalPoints } from "@/content/answers";
 import type { SessionUser } from "./auth";
 
 /** Answers arriving up to this long after the deadline are still accepted (network delay). */
@@ -109,6 +109,12 @@ export async function saveAnswer(a: Attempt, questionId: string, optionId: strin
     const text = optionId.replace(/\s+/g, " ").slice(0, 200);
     if (text.trim()) a.answers[questionId] = text;
     else delete a.answers[questionId];
+  } else if (q.multi) {
+    const ids = optionId.split(",").filter(Boolean);
+    if (ids.some((id) => !valid(id))) throw new HttpError(400, "Unknown option");
+    const v = toggleChoice(ids.join(","), "");
+    if (v) a.answers[questionId] = v;
+    else delete a.answers[questionId];
   } else if (q.rows?.length) {
     const parts = optionId.split(",");
     if (parts.length !== q.rows.length || parts.some((p) => p && !valid(p))) throw new HttpError(400, "Unknown option");
@@ -207,7 +213,17 @@ export async function publicView(a: Attempt) {
           const count = pointsOf(q);
           const number = n + 1;
           n += count;
-          return { id: q.id, number, count, prompt: q.prompt, options: opts, rows: q.rows ?? null, input: isDateQuestion(q) ? ("date" as const) : null };
+          return {
+            id: q.id,
+            number,
+            count,
+            prompt: q.prompt,
+            options: opts,
+            rows: q.rows ?? null,
+            multi: q.multi ?? null,
+            input: isDateQuestion(q) ? ("date" as const) : null,
+            media: (q.media ?? []).map((st) => ({ ...st, url: `/api/asset/${a.slug}/${encodeURIComponent(st.file)}?v=${a.version ?? 0}` })),
+          };
         }),
       };
     }),

@@ -1,7 +1,7 @@
 // Answer helpers shared by the server and the browser (no answer keys in here).
 import type { Option } from "./types";
 
-type Q = { options: Option[]; rows?: Option[] | null; scoring?: "per-row" };
+type Q = { options: Option[]; rows?: Option[] | null; scoring?: "per-row"; multi?: boolean | null };
 
 /** True when every part of the question has an answer. */
 export function isAnswered(q: Q, value: string | undefined): boolean {
@@ -21,6 +21,7 @@ export function isTextQuestion(q: Q): boolean {
 export function answerText(q: Q, value: string | undefined): string {
   if (!value) return "";
   if (isTextQuestion(q)) return value.split("\n").map((x) => x.trim()).filter(Boolean).join(" or ");
+  if (q.multi) return value.split(",").filter(Boolean).map((id) => q.options.find((o) => o.id === id)?.text ?? id).join("; ");
   if (!q.rows?.length) return q.options.find((o) => o.id === value)?.text ?? "";
   const parts = value.split(",");
   return q.rows
@@ -30,6 +31,16 @@ export function answerText(q: Q, value: string | undefined): string {
 
 function short(t: string) {
   return t.length > 40 ? t.slice(0, 38).trimEnd() + "…" : t;
+}
+
+/** Check-all-that-apply: add or remove one choice; returns the sorted set ("a,c"). With "" just normalizes. */
+export function toggleChoice(value: string | undefined, id: string): string {
+  const set = new Set((value ?? "").split(",").filter(Boolean));
+  if (id) {
+    if (set.has(id)) set.delete(id);
+    else set.add(id);
+  }
+  return [...set].sort().join(",");
 }
 
 /** Set one row of a grid answer. */
@@ -88,6 +99,7 @@ export function textMatches(accepted: string, value: string): boolean {
 export function isCorrect(q: Q & { answer: string }, value: string | undefined): boolean {
   if (!value) return false;
   if (isTextQuestion(q)) return textMatches(q.answer, value);
+  if (q.multi) return toggleChoice(value, "").split(",").join() === toggleChoice(q.answer, "").split(",").join();
   return value === q.answer;
 }
 

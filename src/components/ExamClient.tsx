@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PublicAttempt } from "@/lib/attempts";
 import type { ActivityType } from "@/lib/types";
 import "./exam.css";
-import { answeredItems, numberLabel, setGridRow } from "@/content/answers";
+import { answeredItems, numberLabel, setGridRow, toggleChoice } from "@/content/answers";
 
 type Stim = PublicAttempt["sections"][number]["stimuli"][number];
 
@@ -199,6 +199,28 @@ export default function ExamClient({ slug }: { slug: string }) {
   const timerClass = remaining < 60_000 ? "timer danger" : remaining < 5 * 60_000 ? "timer warn" : "timer";
   const blurred = guard !== null;
 
+  const renderStim = (st: Stim) =>
+                st.type === "audio" ? (
+                  <figure key={st.file} className="stim stim-audio">
+                    <figcaption>{st.caption}</figcaption>
+                    <audio src={st.url} controls controlsList="nodownload noplaybackrate" preload="metadata" />
+                  </figure>
+                ) : st.type === "video" ? (
+                  <figure key={st.file} className="stim stim-video">
+                    <video src={st.url} controls controlsList="nodownload noplaybackrate" disablePictureInPicture preload="metadata" />
+                    <figcaption>{st.caption}</figcaption>
+                  </figure>
+                ) : (
+                  <figure key={st.file} className="stim stim-full">
+                    <div className="stim-head">
+                      <figcaption>{st.caption}</figcaption>
+                      <button className="btn zoom-btn" onClick={() => setViewer(st)}>Zoom</button>
+                    </div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={st.url} alt={st.caption} draggable={false} />
+                  </figure>
+                );
+
   function goTo(i: number) {
     setSectionIdx(i);
     document.querySelector(".exam-body")?.scrollTo({ top: 0 });
@@ -238,28 +260,7 @@ export default function ExamClient({ slug }: { slug: string }) {
 
           {section.stimuli.length > 0 && (
             <div className="stimuli">
-              {section.stimuli.map((st) =>
-                st.type === "audio" ? (
-                  <figure key={st.file} className="stim stim-audio">
-                    <figcaption>{st.caption}</figcaption>
-                    <audio src={st.url} controls controlsList="nodownload noplaybackrate" preload="metadata" />
-                  </figure>
-                ) : st.type === "video" ? (
-                  <figure key={st.file} className="stim stim-video">
-                    <video src={st.url} controls controlsList="nodownload noplaybackrate" disablePictureInPicture preload="metadata" />
-                    <figcaption>{st.caption}</figcaption>
-                  </figure>
-                ) : (
-                  <figure key={st.file} className="stim stim-full">
-                    <div className="stim-head">
-                      <figcaption>{st.caption}</figcaption>
-                      <button className="btn zoom-btn" onClick={() => setViewer(st)}>Zoom</button>
-                    </div>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={st.url} alt={st.caption} draggable={false} />
-                  </figure>
-                ),
-              )}
+              {section.stimuli.map(renderStim)}
             </div>
           )}
 
@@ -269,6 +270,7 @@ export default function ExamClient({ slug }: { slug: string }) {
                 <span className={`qnum ${q.count > 1 ? "qnum-range" : ""}`}>{numberLabel(q.number, q.count)}</span>
                 <span>{q.prompt}</span>
               </legend>
+              {q.media.length > 0 && <div className="stimuli q-media">{q.media.map(renderStim)}</div>}
               {q.input === "date" ? (
                 <DateAnswer key={q.id} initial={answers[q.id] ?? ""} label={q.prompt} onSave={(v) => choose(q.id, v)} />
               ) : q.options.length === 0 ? (
@@ -279,6 +281,19 @@ export default function ExamClient({ slug }: { slug: string }) {
                   onType={(v) => setAnswers((a) => ({ ...a, [q.id]: v }))}
                   onSave={(v) => choose(q.id, v)}
                 />
+              ) : q.multi ? (
+                <div className="options" role="group" aria-label={q.prompt}>
+                  <p className="small muted" style={{ margin: "0 0 4px" }}>Check all that apply.</p>
+                  {q.options.map((o) => {
+                    const on = (answers[q.id] ?? "").split(",").includes(o.id);
+                    return (
+                      <label key={o.id} className={`option ${on ? "chosen" : ""}`}>
+                        <input type="checkbox" checked={on} onChange={() => choose(q.id, toggleChoice(answers[q.id], o.id))} />
+                        <span>{o.text}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               ) : q.rows ? (
                 <div className="grid-q" role="group">
                   <p className="small muted" style={{ margin: "0 0 8px" }}>Choose one answer for each row.</p>

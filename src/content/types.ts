@@ -14,6 +14,10 @@ export type Question = {
   rows?: Option[];
   /** Grid scoring: "per-row" = 1 point for each row answered correctly. Default: 1 point, all or nothing. */
   scoring?: "per-row";
+  /** "Check all that apply": answer is the sorted set of correct option ids ("a,d"). 1 point, exact set. */
+  multi?: boolean;
+  /** Images (etc.) shown with this question, between the question text and the choices. */
+  media?: Stimulus[];
   /** Option id — or for a grid, one option id per row joined by commas ("a,b").
    *  A question with no options is a short-answer question: the candidate types the answer and
    *  `answer` holds the accepted answer(s), one per line (dates match in any common format).

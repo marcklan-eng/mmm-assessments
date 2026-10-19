@@ -6,7 +6,9 @@
 // - One row per question, in the order candidates will see them.
 // - Section / Section Description / Section Media only need to be filled on a section's first row.
 // - Section Media: one file per line, as "file-name.png | Caption" (the caption is optional).
-// - Correct: the letter of the right choice (A–F).
+// - Correct: the letter of the right choice (A–F). Several letters ("A, D") with no Rows makes a
+//   "check all that apply" question: 1 point when exactly those choices are checked.
+// - Question Media (optional): images shown with that question, same format as Section Media.
 // - Short answer: leave A–F blank and type the accepted answer in Correct (several on separate lines).
 //   Case, spacing and punctuation don't matter, and dates match in any format (06/18/1987 = June 18, 1987).
 // - Rows (optional): makes a matching grid. One item per line; candidates pick one choice (A–F) per row.
@@ -33,6 +35,7 @@ export const QUESTION_HEADERS = [
   "Correct",
   "Rows",
   "Scoring",
+  "Question Media",
 ];
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
@@ -79,7 +82,7 @@ function parseMedia(cell: string, row: number, issues: Issue[]): Stimulus[] {
 
 /** Strip volatile fields so two sets can be compared. */
 function fingerprint(c: AssessmentContent) {
-  return JSON.stringify(c.sections.map((s) => [s.title, s.description, s.stimuli, s.questions.map((q) => [q.prompt, q.options, q.rows ?? null, q.scoring ?? null, q.answer])]));
+  return JSON.stringify(c.sections.map((s) => [s.title, s.description, s.stimuli, s.questions.map((q) => [q.prompt, q.options, q.rows ?? null, q.scoring ?? null, q.multi ?? null, q.media ?? null, q.answer])]));
 }
 
 /** Header for a per-assessment tab (no Assessment column needed). */
@@ -191,6 +194,8 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
       if (!desc && !media) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: "Question is blank." });
       return;
     }
+    const qMediaCell = cell(r, "Question Media");
+    const qMedia = qMediaCell ? parseMedia(qMediaCell, rowNum, d.errors) : [];
     const choices = LETTERS.map((L) => ({ letter: L, text: cell(r, L) }));
     const lastFilled = Math.max(...choices.map((c, k) => (c.text ? k : -1)));
     const gap = choices.slice(0, lastFilled + 1).find((c) => !c.text);
@@ -204,7 +209,7 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
       if (d.seen.has(norm(prompt))) d.warnings.push({ row: rowNum, where: whereOf(rowNum), message: "This question text appears more than once." });
       d.seen.add(norm(prompt));
       const n = d.sections.reduce((t, s) => t + s.questions.length, 0) + 1;
-      section.questions.push({ id: `q${String(n).padStart(2, "0")}`, prompt, options: [], answer: accepted.join("\n") });
+      section.questions.push({ id: `q${String(n).padStart(2, "0")}`, prompt, options: [], ...(qMedia.length ? { media: qMedia } : {}), answer: accepted.join("\n") });
       return;
     }
     if (filled.length < 2) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: "A question needs at least 2 choices (A and B), or none for a typed answer." });
@@ -227,8 +232,11 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
         const bad = [...correct].find((L) => !filled.some((c) => c.letter === L));
         if (bad) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `Correct uses ${bad}, but choice ${bad} is blank.` });
       }
-    } else if (correct.length > 1) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `Correct should be one letter, not "${cell(r, "Correct")}".` });
-    else if (!filled.some((c) => c.letter === correct)) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `Correct is ${correct}, but choice ${correct} is blank.` });
+    } else if (correct.length > 1) {
+      if (new Set(correct).size !== correct.length) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `Correct lists the same letter twice ("${cell(r, "Correct")}").` });
+      const bad = [...correct].find((L) => !filled.some((c) => c.letter === L));
+      if (bad) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `Correct uses ${bad}, but choice ${bad} is blank.` });
+    } else if (!filled.some((c) => c.letter === correct)) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `Correct is ${correct}, but choice ${correct} is blank.` });
 
     const texts = filled.map((c) => norm(c.text));
     if (new Set(texts).size !== texts.length) d.warnings.push({ row: rowNum, where: whereOf(rowNum), message: "Two choices have the same text." });
@@ -242,7 +250,13 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
       options: filled.map((c) => ({ id: c.letter.toLowerCase(), text: c.text })),
       ...(gridRows.length ? { rows: gridRows.map((t, k) => ({ id: `r${k + 1}`, text: t })) } : {}),
       ...(gridRows.length && perRow ? { scoring: "per-row" as const } : {}),
-      answer: gridRows.length ? [...correct].map((L) => L.toLowerCase()).join(",") : correct.toLowerCase(),
+      ...(!gridRows.length && correct.length > 1 ? { multi: true } : {}),
+      ...(qMedia.length ? { media: qMedia } : {}),
+      answer: gridRows.length
+        ? [...correct].map((L) => L.toLowerCase()).join(",")
+        : correct.length > 1
+          ? [...new Set(correct)].map((L) => L.toLowerCase()).sort().join(",")
+          : correct.toLowerCase(),
     });
   });
 
@@ -251,7 +265,7 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
     const available = await availableMedia(slug);
     d.sections.forEach((s) => {
       if (!s.questions.length) d.errors.push({ row: 0, message: `Section "${s.title}" has no questions.` });
-      (s.stimuli ?? []).forEach((st) => {
+      [...(s.stimuli ?? []), ...s.questions.flatMap((q) => q.media ?? [])].forEach((st) => {
         if (!available.has(st.file)) d.errors.push({ row: 0, message: `"${st.file}" (section "${s.title}") hasn't been uploaded yet.` });
       });
     });
@@ -296,9 +310,10 @@ export async function seedTabs(): Promise<{ name: string; rows: string[][] }[]> 
           first ? (s.stimuli ?? []).map((st) => `${st.file} | ${st.caption}`).join("\n") : "",
           q.prompt,
           ...LETTERS.map((L) => q.options[letters.indexOf(L)]?.text ?? ""),
-          !q.options.length ? q.answer : q.rows?.length ? q.answer.toUpperCase().split(",").join(", ") : q.answer.toUpperCase(),
+          !q.options.length ? q.answer : q.rows?.length || q.multi ? q.answer.toUpperCase().split(",").join(", ") : q.answer.toUpperCase(),
           (q.rows ?? []).map((x) => x.text).join("\n"),
           q.scoring === "per-row" ? "Per row" : "",
+          (q.media ?? []).map((st) => `${st.file} | ${st.caption}`).join("\n"),
         ]);
       });
     }

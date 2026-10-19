@@ -65,7 +65,7 @@ export function allQuestions(content: AssessmentContent): Question[] {
 
 /** Every image/video file referenced by a question set. */
 export function assetFiles(content: AssessmentContent): Set<string> {
-  return new Set(content.sections.flatMap((s) => (s.stimuli ?? []).map((st) => st.file)));
+  return new Set(content.sections.flatMap((s) => [...(s.stimuli ?? []), ...s.questions.flatMap((q) => q.media ?? [])].map((st) => st.file)));
 }
 
 // Extra files shipped in private-assets/<slug>/ for question sets that come from the questions Sheet.
@@ -83,6 +83,20 @@ const BUNDLED: Record<string, string[]> = {
     "voicemail4.mp3",
     "voicemail5.mp3",
     "patient-intake.mp3",
+  ],
+  "medical-admin": [
+    "ma-medicare-ab-card.png",
+    "ma-medicare-advantage-card.png",
+    "ma-medicare-part-d-card.png",
+    "ma-hmo-card.png",
+    "ma-safety-flag-henderson.png",
+    "ma-dr-evans-schedule.png",
+    "ma-referral-entry-maria-d.png",
+    "ma-prior-auth-jessica-green.png",
+    "ma-invoice-emily-thompson.png",
+    "ma-clinical-note-maria-lopez.png",
+    "ma-records-release-request.png",
+    "ma-patient-demographics-wiggins.png",
   ],
 };
 

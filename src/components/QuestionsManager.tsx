@@ -226,6 +226,18 @@ function Preview({ a }: { a: ParsedAssessment }) {
             return (
               <div key={q.id} className="qb-q">
                 <div><b>{numberLabel(start, pointsOf(q))}.</b> {q.prompt}</div>
+                {(q.media ?? []).length > 0 && (
+                  <div className="qb-media">
+                    {(q.media ?? []).map((st) => (
+                      <figure key={st.file}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={`/api/asset/${a.slug}/${encodeURIComponent(st.file)}`} alt={st.caption} />
+                        <figcaption className="small">{st.caption}<br /><span className="muted">{st.file}</span></figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                )}
+                {q.multi && <div className="small muted" style={{ marginTop: 6 }}>Check all that apply · 1 point when exactly the marked choices are checked</div>}
                 {q.options.length === 0 ? (
                   <div className="small" style={{ marginTop: 6 }}>
                     {isDateQuestion(q) ? "Date answer (Month / Day / Year dropdowns)." : "Typed answer."} Accepted: <span className="pill pill-good">✓ {q.answer.split("\n").filter(Boolean).join(" or ")}</span>
@@ -264,8 +276,8 @@ function Preview({ a }: { a: ParsedAssessment }) {
                 ) : (
                   <ul>
                     {q.options.map((o) => (
-                      <li key={o.id} className={o.id === q.answer ? "correct" : ""}>
-                        <span className="qb-letter">{o.id.toUpperCase()}</span> {o.text} {o.id === q.answer && <span className="pill pill-good">✓ correct</span>}
+                      <li key={o.id} className={q.answer.split(",").includes(o.id) ? "correct" : ""}>
+                        <span className="qb-letter">{o.id.toUpperCase()}</span> {o.text} {q.answer.split(",").includes(o.id) && <span className="pill pill-good">✓ correct</span>}
                       </li>
                     ))}
                   </ul>
