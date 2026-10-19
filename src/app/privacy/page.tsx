@@ -1,6 +1,6 @@
 import TopBar from "@/components/TopBar";
 
-export const metadata = { title: "Privacy | My Mountain Mover Skills Assessments" };
+export const metadata = { title: "Privacy | My Mountain Mover Skills Evaluation Assessment (SEA)" };
 
 export default function Privacy() {
   return (

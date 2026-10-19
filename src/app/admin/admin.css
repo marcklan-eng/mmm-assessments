@@ -56,3 +56,11 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .modal { background: var(--surface); border-radius: 12px; padding: 24px; width: 100%; max-width: 460px; box-shadow: 0 20px 60px rgb(0 0 0 / 0.3); }
 
 .qb-q > div:first-child, .qb-preview p.small { white-space: pre-line; }
+.role-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 2px; }
+.role-tab { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; font-size: 13.5px; color: var(--text); background: var(--surface); text-decoration: none; white-space: nowrap; }
+.role-tab:hover { border-color: var(--brand); }
+.role-tab.active { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+.role-tab.empty:not(.active) { color: var(--text-3); }
+.role-n { font-variant-numeric: tabular-nums; font-size: 12px; padding: 0 6px; border-radius: 999px; background: rgba(127,127,127,.15); }
+.role-tab.active .role-n { background: rgba(255,255,255,.25); }
+tr.muted td { color: var(--text-3); }

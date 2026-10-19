@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Providers from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "My Mountain Mover Skills Assessments",
+  title: "My Mountain Mover Skills Evaluation Assessment (SEA)",
   robots: { index: false, follow: false },
 };
 

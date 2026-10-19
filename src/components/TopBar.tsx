@@ -6,7 +6,7 @@ export default function TopBar({ email, right }: { email?: string; right?: React
     <header className="topbar">
       <Link href="/" className="brand">
         <span className="brand-mark">MM</span>
-        <span>Skills Assessment</span>
+        <span>Skills Evaluation Assessment (SEA)</span>
       </Link>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         {right}

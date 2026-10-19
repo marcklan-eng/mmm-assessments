@@ -1,4 +1,4 @@
-// Images and videos for question sets: uploaded on the dashboard to Vercel Blob (private),
+// Images, videos and audio for question sets: uploaded on the dashboard to Vercel Blob (private),
 // referenced by file name in the Questions tab, and served only through /api/asset.
 import { db } from "./db";
 import { bundledFiles } from "@/content";
@@ -26,17 +26,18 @@ export const IMAGE_TYPES: Record<string, string> = {
   webp: "image/webp",
 };
 export const VIDEO_TYPES: Record<string, string> = { mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime" };
+export const AUDIO_TYPES: Record<string, string> = { mp3: "audio/mpeg", m4a: "audio/mp4", wav: "audio/wav", ogg: "audio/ogg" };
 
 export function extOf(name: string) {
   return name.split(".").pop()?.toLowerCase() ?? "";
 }
-export function mediaKind(name: string): "image" | "video" | null {
+export function mediaKind(name: string): "image" | "video" | "audio" | null {
   const e = extOf(name);
-  return IMAGE_TYPES[e] ? "image" : VIDEO_TYPES[e] ? "video" : null;
+  return IMAGE_TYPES[e] ? "image" : VIDEO_TYPES[e] ? "video" : AUDIO_TYPES[e] ? "audio" : null;
 }
 export function contentTypeOf(name: string) {
   const e = extOf(name);
-  return IMAGE_TYPES[e] ?? VIDEO_TYPES[e] ?? "application/octet-stream";
+  return IMAGE_TYPES[e] ?? VIDEO_TYPES[e] ?? AUDIO_TYPES[e] ?? "application/octet-stream";
 }
 
 /** Normalizes an uploaded file name: lowercase, spaces to dashes, safe characters only. */

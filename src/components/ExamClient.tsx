@@ -230,12 +230,17 @@ export default function ExamClient({ slug }: { slug: string }) {
         <div className="exam-inner">
           <p className="eyebrow">Section {sectionIdx + 1} of {data.sections.length}</p>
           <h1>{section.title}</h1>
-          {section.description && <p className="muted">{section.description}</p>}
+          {section.description && <p className="muted" style={{ whiteSpace: "pre-line" }}>{section.description}</p>}
 
           {section.stimuli.length > 0 && (
             <div className="stimuli">
               {section.stimuli.map((st) =>
-                st.type === "video" ? (
+                st.type === "audio" ? (
+                  <figure key={st.file} className="stim stim-audio">
+                    <figcaption>{st.caption}</figcaption>
+                    <audio src={st.url} controls controlsList="nodownload noplaybackrate" preload="metadata" />
+                  </figure>
+                ) : st.type === "video" ? (
                   <figure key={st.file} className="stim stim-video">
                     <video src={st.url} controls controlsList="nodownload noplaybackrate" disablePictureInPicture preload="metadata" />
                     <figcaption>{st.caption}</figcaption>
@@ -260,7 +265,15 @@ export default function ExamClient({ slug }: { slug: string }) {
                 <span className="qnum">{q.number}</span>
                 <span>{q.prompt}</span>
               </legend>
-              {q.rows ? (
+              {q.options.length === 0 ? (
+                <TextAnswer
+                  key={q.id}
+                  initial={answers[q.id] ?? ""}
+                  label={q.prompt}
+                  onType={(v) => setAnswers((a) => ({ ...a, [q.id]: v }))}
+                  onSave={(v) => choose(q.id, v)}
+                />
+              ) : q.rows ? (
                 <div className="grid-q" role="group">
                   <p className="small muted" style={{ margin: "0 0 8px" }}>Choose one answer for each row.</p>
                   <table>
@@ -402,5 +415,42 @@ function ImageViewer({ stim, onClose }: { stim: Stim; onClose: () => void }) {
         <img src={stim.url} alt={stim.caption} draggable={false} style={{ width: `${zoom * 100}%`, maxWidth: zoom === 1 ? "100%" : "none" }} />
       </div>
     </>
+  );
+}
+
+/** Typed answer: saved after a short pause in typing and when the field loses focus. */
+function TextAnswer({ initial, label, onType, onSave }: { initial: string; label: string; onType: (v: string) => void; onSave: (v: string) => void }) {
+  const [value, setValue] = useState(initial);
+  const saved = useRef(initial);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flush = (v: string) => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    if (v.trim() === saved.current.trim()) return;
+    saved.current = v;
+    onSave(v);
+  };
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  return (
+    <div className="text-answer">
+      <input
+        type="text"
+        className="input"
+        aria-label={label}
+        placeholder="Type your answer"
+        maxLength={200}
+        autoComplete="off"
+        spellCheck={false}
+        value={value}
+        onChange={(e) => {
+          const v = e.target.value;
+          setValue(v);
+          onType(v);
+          if (timer.current) clearTimeout(timer.current);
+          timer.current = setTimeout(() => flush(v), 900);
+        }}
+        onBlur={() => flush(value)}
+      />
+    </div>
   );
 }

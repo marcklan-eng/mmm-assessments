@@ -4,7 +4,7 @@ import TopBar from "@/components/TopBar";
 import AdminGate from "@/components/AdminGate";
 import { BarChart, LineChart, Legend, Meter } from "@/components/Charts";
 import { allAttempts } from "@/lib/attempts";
-import { applyFilters, overview, parseFilters, questionStats, sectionStats, weeklyTrend } from "@/lib/stats";
+import { applyFilters, overview, parseFilters, questionStats, roleBreakdown, sectionStats, weeklyTrend } from "@/lib/stats";
 import { ASSESSMENTS, getMeta } from "@/content/assessments";
 import { getContent } from "@/content";
 import { fmtDuration, sheetConfigured } from "@/lib/google";
@@ -24,7 +24,17 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     <AdminGate path="/admin">
       {async (user) => {
         const f = parseFilters(sp);
-        const list = applyFilters(await allAttempts(), f);
+        const everything = await allAttempts();
+        const list = applyFilters(everything, f);
+        // Same filters, every role: for the role tabs and the by-role table.
+        const allRoles = applyFilters(everything, { ...f, assessment: "all" });
+        const byRole = roleBreakdown(allRoles, ASSESSMENTS);
+        const roleHref = (slug: string) => {
+          const p = new URLSearchParams(Object.entries(sp).filter(([k, v]) => v && k !== "assessment" && k !== "qv") as [string, string][]);
+          if (slug !== "all") p.set("assessment", slug);
+          const s = p.toString();
+          return s ? `/admin?${s}` : "/admin";
+        };
         const o = overview(list);
         const trend = weeklyTrend(list);
         const singleSlug = f.assessment !== "all" ? f.assessment : null;
@@ -49,7 +59,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             </form>
           ) : null;
         // Medical Biller ↔ Advanced RCM side by side
-        const all = await allAttempts();
+        const all = everything;
         const rcmBy = new Map(all.filter((a) => a.slug === "advanced-rcm" && a.status !== "in_progress").map((a) => [a.email, a]));
         const exportQs = new URLSearchParams(Object.entries(sp).filter(([, v]) => v) as [string, string][]).toString();
 
@@ -74,7 +84,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               <div className="dash-head">
                 <div>
                   <p className="eyebrow">Executive dashboard</p>
-                  <h1 style={{ marginBottom: 0 }}>{singleSlug ? `${getMeta(singleSlug)?.title} assessment` : "All assessments"}</h1>
+                  <h1 style={{ marginBottom: 0 }}>{singleSlug ? `${getMeta(singleSlug)?.title} assessment` : "All roles"}</h1>
                 </div>
                 <div className="btn-row">
                   <Link className="btn" href="/admin/questions">Questions &amp; media</Link>
@@ -82,11 +92,19 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 </div>
               </div>
 
+              <nav className="role-tabs" aria-label="Filter by role">
+                {[{ slug: "all", title: "All roles", n: allRoles.length }, ...byRole.map((r) => ({ slug: r.slug, title: r.title, n: r.started }))].map((r) => (
+                  <Link key={r.slug} href={roleHref(r.slug)} className={`role-tab ${f.assessment === r.slug ? "active" : ""} ${r.n === 0 ? "empty" : ""}`} aria-current={f.assessment === r.slug ? "page" : undefined}>
+                    {r.title} <span className="role-n">{r.n}</span>
+                  </Link>
+                ))}
+              </nav>
+
               <form className="filters" method="get">
                 <div className="field">
-                  <label htmlFor="assessment">Assessment</label>
+                  <label htmlFor="assessment">Role</label>
                   <select id="assessment" name="assessment" className="input" defaultValue={f.assessment}>
-                    <option value="all">All assessments</option>
+                    <option value="all">All roles</option>
                     {ASSESSMENTS.map((a) => <option key={a.slug} value={a.slug}>{a.title}</option>)}
                   </select>
                 </div>
@@ -118,6 +136,39 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 <Kpi label="Average time" value={o.avgMinutes == null ? "—" : `${o.avgMinutes.toFixed(1)} min`} sub="Of 30 minutes" />
                 <Kpi label="Flagged activity" value={o.flagged} sub="3+ window/copy events" />
               </section>
+
+              {!singleSlug && (
+                <div className="panel section-gap" style={{ marginTop: 0, marginBottom: 16 }}>
+                  <h2>By role</h2>
+                  <p className="sub">Click a role to see its trends, sections and most-missed questions</p>
+                  <div className="table-scroll">
+                    <table className="data">
+                      <thead>
+                        <tr>
+                          <th>Role</th><th className="num">Started</th><th className="num">Completed</th><th className="num">Passed</th><th className="num">Failed</th>
+                          <th className="num">Timed out</th><th className="num">In progress</th><th>Pass rate</th><th className="num">Avg score</th><th className="num">Avg time</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {byRole.map((r) => (
+                          <tr key={r.slug} className={r.started === 0 ? "muted" : ""}>
+                            <td><Link href={roleHref(r.slug)}><b>{r.title}</b></Link></td>
+                            <td className="num">{r.started}</td>
+                            <td className="num">{r.completed}</td>
+                            <td className="num">{r.passed}</td>
+                            <td className="num">{r.failed}</td>
+                            <td className="num">{r.timedOut}</td>
+                            <td className="num">{r.inProgress}</td>
+                            <td style={{ minWidth: 140 }}>{r.passRate == null ? <span className="muted">—</span> : <div style={{ display: "flex", gap: 8, alignItems: "center" }}><Meter value={r.passRate} /><span className="num small">{pct(r.passRate)}</span></div>}</td>
+                            <td className="num">{pct(r.avgScore)}</td>
+                            <td className="num">{r.avgMinutes == null ? "—" : `${r.avgMinutes.toFixed(1)} min`}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               <div className="grid-2">
                 <div className="panel">

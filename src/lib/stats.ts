@@ -1,6 +1,6 @@
 import type { Attempt } from "./types";
 import { allQuestions, type QuestionSet } from "@/content";
-import { answerText, isAnswered } from "@/content/answers";
+import { answerText, isAnswered, isCorrect } from "@/content/answers";
 
 export type Filters = {
   assessment: string; // slug or "all"
@@ -13,7 +13,7 @@ export type Filters = {
 
 export function parseFilters(sp: Record<string, string | undefined>): Filters {
   return {
-    assessment: sp.assessment || "medical-biller",
+    assessment: sp.assessment || "all",
     from: sp.from || undefined,
     to: sp.to || undefined,
     result: (["pass", "fail"].includes(sp.result ?? "") ? sp.result : "all") as Filters["result"],
@@ -55,6 +55,11 @@ export function overview(list: Attempt[]) {
     avgMinutes: avg(done.map((a) => (Math.min(a.submittedAt!, a.deadline) - a.startedAt) / 60000)),
     flagged,
   };
+}
+
+/** One row per role (assessment) for the all-roles view. */
+export function roleBreakdown(list: Attempt[], roles: { slug: string; title: string }[]) {
+  return roles.map((r) => ({ ...r, ...overview(list.filter((a) => a.slug === r.slug)) }));
 }
 
 /** Weekly buckets (weeks start Monday) for completed attempts. */
@@ -103,10 +108,10 @@ export function questionStats(list: Attempt[], content: QuestionSet) {
         const c = a.answers[q.id];
         if (!isAnswered(q, c)) { blank++; wrong++; continue; }
         counts[c] = (counts[c] ?? 0) + 1;
-        if (c !== q.answer) wrong++;
+        if (!isCorrect(q, c)) wrong++;
       }
       const topWrong = Object.entries(counts)
-        .filter(([id]) => id !== q.answer)
+        .filter(([id]) => !isCorrect(q, id))
         .sort((x, y) => y[1] - x[1])[0];
       const section = content.sections.find((s) => s.questions.includes(q))!;
       return {
@@ -129,7 +134,7 @@ export function sectionStats(list: Attempt[], content: QuestionSet) {
   const done = list.filter((a) => a.status !== "in_progress" && a.slug === slug && (a.version ?? 0) === content.version);
   return content.sections.map((s) => {
     let right = 0;
-    for (const a of done) for (const q of s.questions) if (a.answers[q.id] === q.answer) right++;
+    for (const a of done) for (const q of s.questions) if (isCorrect(q, a.answers[q.id])) right++;
     const possible = done.length * s.questions.length;
     return { title: s.title, pct: possible ? (right / possible) * 100 : null };
   });

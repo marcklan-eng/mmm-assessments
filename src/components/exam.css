@@ -98,3 +98,8 @@
 
 /* Keep line breaks from the Questions tab in prompts and section text */
 .question legend > span:last-child, .exam-inner > p.muted { white-space: pre-line; }
+.stim-audio { grid-column: 1 / -1; cursor: default; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 10px 12px; }
+.stim-audio figcaption { min-width: 110px; font-weight: 600; }
+.stim-audio audio { flex: 1; min-width: 240px; }
+.text-answer { margin-top: 10px; max-width: 360px; }
+.text-answer .input { width: 100%; }

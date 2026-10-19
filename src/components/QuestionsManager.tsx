@@ -4,7 +4,7 @@ import { upload } from "@vercel/blob/client";
 import type { ParseResult, ParsedAssessment } from "@/lib/questionbank";
 
 type Live = { slug: string; title: string; version: number | null; questions: number; publishedAt: number | null; publishedBy: string | null };
-type MediaItem = { name: string; source: "built-in" | "uploaded"; size: number | null; uploadedAt: number | null; kind: "image" | "video" | null; inUse: boolean };
+type MediaItem = { name: string; source: "built-in" | "uploaded"; size: number | null; uploadedAt: number | null; kind: "image" | "video" | "audio" | null; inUse: boolean };
 type MediaList = { blobConfigured: boolean; assessments: { slug: string; title: string; items: MediaItem[] }[] };
 type Check = ({ tab: false } | ({ tab: true } & ParseResult)) & { sheetUrl?: string | null };
 
@@ -201,7 +201,7 @@ function Preview({ a }: { a: ParsedAssessment }) {
       {a.content.sections.map((s) => (
         <div key={s.id} style={{ marginBottom: 18 }}>
           <h3 style={{ marginBottom: 4 }}>{s.title}</h3>
-          {s.description && <p className="small muted">{s.description}</p>}
+          {s.description && <p className="small muted" style={{ whiteSpace: "pre-line" }}>{s.description}</p>}
           {(s.stimuli ?? []).length > 0 && (
             <div className="qb-media">
               {(s.stimuli ?? []).map((st) => (
@@ -209,6 +209,8 @@ function Preview({ a }: { a: ParsedAssessment }) {
                   {st.type === "image" ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={`/api/asset/${a.slug}/${encodeURIComponent(st.file)}`} alt={st.caption} />
+                  ) : st.type === "audio" ? (
+                    <audio src={`/api/asset/${a.slug}/${encodeURIComponent(st.file)}`} controls preload="none" style={{ width: 220 }} />
                   ) : (
                     <div className="qb-video">▶ Video</div>
                   )}
@@ -222,7 +224,11 @@ function Preview({ a }: { a: ParsedAssessment }) {
             return (
               <div key={q.id} className="qb-q">
                 <div><b>{n}.</b> {q.prompt}</div>
-                {q.rows?.length ? (
+                {q.options.length === 0 ? (
+                  <div className="small" style={{ marginTop: 6 }}>
+                    Typed answer. Accepted: <span className="pill pill-good">✓ {q.answer.split("\n").filter(Boolean).join(" or ")}</span>
+                  </div>
+                ) : q.rows?.length ? (
                   <>
                     <ul>
                       {q.options.map((o) => (
@@ -330,7 +336,7 @@ function MediaPanel({ canEdit }: { canEdit: boolean }) {
 
   return (
     <div className="panel section-gap">
-      <h2>Images &amp; videos</h2>
+      <h2>Images, videos &amp; audio</h2>
       <p className="sub">
         Upload a file here, then put its name in the <b>Section Media</b> column, e.g. <code>eob-2026.png | EOB for this section</code>.
         Uploading a file with the same name replaces it everywhere it’s used.
@@ -354,8 +360,8 @@ function MediaPanel({ canEdit }: { canEdit: boolean }) {
         {canEdit && (
           <>
             <div className="field" style={{ flex: "2 1 260px" }}>
-              <label htmlFor="media-file">Images or videos (you can pick several)</label>
-              <input id="media-file" type="file" multiple className="input" accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm,video/quicktime" onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
+              <label htmlFor="media-file">Images, videos or audio (you can pick several)</label>
+              <input id="media-file" type="file" multiple className="input" accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm,video/quicktime,audio/mpeg,audio/mp4,audio/wav,audio/ogg,.mp3,.m4a,.wav,.ogg" onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
             </div>
             <button className="btn btn-primary" disabled={!files.length || progress !== null || !data?.blobConfigured} onClick={doUpload}>
               {progress !== null ? `Uploading ${uploading} … ${progress}%` : files.length > 1 ? `Upload ${files.length} files` : "Upload"}
@@ -372,7 +378,7 @@ function MediaPanel({ canEdit }: { canEdit: boolean }) {
             {group?.items.map((m) => (
               <tr key={m.name}>
                 <td><code>{m.name}</code></td>
-                <td className="small">{m.kind === "video" ? "Video" : "Image"}</td>
+                <td className="small">{m.kind === "video" ? "Video" : m.kind === "audio" ? "Audio" : "Image"}</td>
                 <td className="small muted">{m.source === "built-in" ? "Came with the app" : `Uploaded ${fmtDate(m.uploadedAt)}`}</td>
                 <td className="num small">{fmtSize(m.size)}</td>
                 <td className="small">{m.inUse ? "Yes" : "—"}</td>

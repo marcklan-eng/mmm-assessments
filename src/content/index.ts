@@ -68,8 +68,26 @@ export function assetFiles(content: AssessmentContent): Set<string> {
   return new Set(content.sections.flatMap((s) => (s.stimuli ?? []).map((st) => st.file)));
 }
 
+// Extra files shipped in private-assets/<slug>/ for question sets that come from the questions Sheet.
+const BUNDLED: Record<string, string[]> = {
+  "medical-receptionist": [
+    "mr-supportive-care-verification-form.png",
+    "mr-medication-refill-request.png",
+    "mr-patient-record-jane-doe.png",
+    "mr-billing-details-lisa-monroe.png",
+    "mr-weekly-schedule.png",
+    "mr-medical-referral-form.png",
+    "voicemail1.mp3",
+    "voicemail2.mp3",
+    "voicemail3.mp3",
+    "voicemail4.mp3",
+    "voicemail5.mp3",
+    "patient-intake.mp3",
+  ],
+};
+
 /** Files shipped with the app (private-assets/<slug>/), usable without uploading. */
 export function bundledFiles(slug: string): Set<string> {
   const c = BUILT_IN[slug];
-  return c ? assetFiles(c) : new Set();
+  return new Set([...(c ? assetFiles(c) : []), ...(BUNDLED[slug] ?? [])]);
 }

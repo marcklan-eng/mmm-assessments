@@ -67,7 +67,7 @@ export default async function AssessmentLanding({ params }: { params: Promise<{ 
           <>
             {content?.intro.map((p, i) => <p key={i} className={i ? "muted" : ""}>{p}</p>)}
             <div className="facts">
-              <div className="fact"><b>{content ? allQuestions(content).length : 0}</b><span>multiple-choice questions</span></div>
+              <div className="fact"><b>{content ? allQuestions(content).length : 0}</b><span>{content && allQuestions(content).every((q) => q.options.length) ? "multiple-choice questions" : "questions"}</span></div>
               <div className="fact"><b>{meta.timeLimitMinutes} minutes</b><span>one timer for the whole assessment</span></div>
               <div className="fact"><b>One attempt</b></div>
             </div>
@@ -76,7 +76,14 @@ export default async function AssessmentLanding({ params }: { params: Promise<{ 
               <li>The assessment runs in <b>fullscreen</b>. Leaving fullscreen or switching windows hides the questions, and it is recorded.</li>
               <li>The timer starts when you click Start and keeps running if you close the page.</li>
               <li>Answers save automatically. When time runs out, your answers are submitted.</li>
-              <li>Use a computer with a stable connection and sound (there is a short video).</li>
+              <li>
+                Use a computer with a stable connection
+                {(() => {
+                  const kinds = new Set((content?.sections ?? []).flatMap((s) => (s.stimuli ?? []).map((st) => st.type)));
+                  const what = [kinds.has("video") && "a short video", kinds.has("audio") && "audio recordings"].filter(Boolean).join(" and ");
+                  return what ? ` and sound (there ${kinds.has("audio") ? "are" : "is"} ${what}).` : ".";
+                })()}
+              </li>
             </ul>
             <StartForm slug={slug} defaultName={user.name} />
           </>
@@ -91,7 +98,7 @@ export default async function AssessmentLanding({ params }: { params: Promise<{ 
     <>
       <TopBar email={user?.email} />
       <main className="wrap">
-        <p className="eyebrow">Skills assessment</p>
+        <p className="eyebrow">Skills Evaluation Assessment (SEA)</p>
         <h1>{meta.title} Assessment</h1>
         <div className="card" style={{ marginTop: 16 }}>{body}</div>
       </main>

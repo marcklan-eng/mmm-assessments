@@ -4,6 +4,7 @@ import type { ActivityType, Attempt } from "./types";
 import { getMeta, RETAKE_MONTHS } from "@/content/assessments";
 import { getContent, allQuestions, currentVersion } from "@/content";
 import { appendToSheet, sheetConfigured } from "./google";
+import { isCorrect, isTextQuestion } from "@/content/answers";
 import type { SessionUser } from "./auth";
 
 /** Answers arriving up to this long after the deadline are still accepted (network delay). */
@@ -100,7 +101,11 @@ export async function saveAnswer(a: Attempt, questionId: string, optionId: strin
   if (!q) throw new HttpError(400, "Unknown question");
   const valid = (id: string) => q.options.some((o) => o.id === id);
   if (optionId === null) delete a.answers[questionId];
-  else if (q.rows?.length) {
+  else if (isTextQuestion(q)) {
+    const text = optionId.replace(/\s+/g, " ").slice(0, 200);
+    if (text.trim()) a.answers[questionId] = text;
+    else delete a.answers[questionId];
+  } else if (q.rows?.length) {
     const parts = optionId.split(",");
     if (parts.length !== q.rows.length || parts.some((p) => p && !valid(p))) throw new HttpError(400, "Unknown option");
     a.answers[questionId] = optionId;
@@ -121,7 +126,7 @@ export async function finalize(a: Attempt, timedOut: boolean): Promise<Attempt> 
   if (a.status !== "in_progress") return a;
   const meta = getMeta(a.slug)!;
   const qs = allQuestions((await getContent(a.slug, a.version ?? 0))!);
-  const score = qs.filter((q) => a.answers[q.id] === q.answer).length;
+  const score = qs.filter((q) => isCorrect(q, a.answers[q.id])).length;
   const now = Date.now();
   a.status = timedOut ? "timed_out" : "submitted";
   a.submittedAt = timedOut ? Math.min(now, a.deadline) : now;

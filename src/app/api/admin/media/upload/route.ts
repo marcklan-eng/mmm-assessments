@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
 import { isEditor } from "@/lib/evaluators";
 import { ASSESSMENTS } from "@/content/assessments";
-import { IMAGE_TYPES, VIDEO_TYPES, blobToken } from "@/lib/media";
+import { IMAGE_TYPES, VIDEO_TYPES, AUDIO_TYPES, blobToken } from "@/lib/media";
 
 // Issues short-lived upload tokens so the browser can upload large files straight to Blob storage.
 export async function POST(req: Request) {
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
         const slug = String(clientPayload ?? "");
         if (!ASSESSMENTS.some((a) => a.slug === slug) || !pathname.startsWith(`assessments/${slug}/`)) throw new Error("Unknown assessment.");
         return {
-          allowedContentTypes: [...Object.values(IMAGE_TYPES), ...Object.values(VIDEO_TYPES)],
+          allowedContentTypes: [...Object.values(IMAGE_TYPES), ...Object.values(VIDEO_TYPES), ...Object.values(AUDIO_TYPES)],
           maximumSizeInBytes: 200 * 1024 * 1024,
           addRandomSuffix: true,
         };

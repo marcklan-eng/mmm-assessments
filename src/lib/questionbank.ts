@@ -7,6 +7,8 @@
 // - Section / Section Description / Section Media only need to be filled on a section's first row.
 // - Section Media: one file per line, as "file-name.png | Caption" (the caption is optional).
 // - Correct: the letter of the right choice (A–F).
+// - Short answer: leave A–F blank and type the accepted answer in Correct (several on separate lines).
+//   Case, spacing and punctuation don't matter, and dates match in any format (06/18/1987 = June 18, 1987).
 // - Rows (optional): makes a matching grid. One item per line; candidates pick one choice (A–F) per row.
 //   Correct then lists one letter per row, in order, e.g. "A, B". Scored as one point, all or nothing.
 import { ASSESSMENTS } from "@/content/assessments";
@@ -64,7 +66,7 @@ function parseMedia(cell: string, row: number, issues: Issue[]): Stimulus[] {
       const name = file.trim();
       const kind = mediaKind(name);
       if (!kind) {
-        issues.push({ row, message: `"${name}" isn't an image or video file name (use .png, .jpg, .mp4, …).` });
+        issues.push({ row, message: `"${name}" isn't an image, video or audio file name (use .png, .jpg, .mp4, .mp3, …).` });
         return [];
       }
       return [{ type: kind, file: name, caption: cap.join("|").trim() || name } as Stimulus];
@@ -190,7 +192,18 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
     const gap = choices.slice(0, lastFilled + 1).find((c) => !c.text);
     if (gap) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `Choice ${gap.letter} is blank but a later choice is filled.` });
     const filled = choices.filter((c) => c.text);
-    if (filled.length < 2) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: "A question needs at least 2 choices (A and B)." });
+    const gridRows0 = cell(r, "Rows").trim();
+    if (!filled.length && !gridRows0) {
+      // Short answer: the candidate types it; Correct holds the accepted answer(s), one per line.
+      const accepted = cell(r, "Correct").split("\n").map((x) => x.trim()).filter(Boolean);
+      if (!accepted.length) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: "Correct is blank. For a typed-answer question (no choices), enter the accepted answer." });
+      if (d.seen.has(norm(prompt))) d.warnings.push({ row: rowNum, where: whereOf(rowNum), message: "This question text appears more than once." });
+      d.seen.add(norm(prompt));
+      const n = d.sections.reduce((t, s) => t + s.questions.length, 0) + 1;
+      section.questions.push({ id: `q${String(n).padStart(2, "0")}`, prompt, options: [], answer: accepted.join("\n") });
+      return;
+    }
+    if (filled.length < 2) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: "A question needs at least 2 choices (A and B), or none for a typed answer." });
 
     const gridRows = cell(r, "Rows").split("\n").map((x) => x.trim()).filter(Boolean);
     const correct = cell(r, "Correct").toUpperCase().replace(/[^A-F]/g, "");
@@ -270,7 +283,7 @@ export async function seedTabs(): Promise<{ name: string; rows: string[][] }[]> 
           first ? (s.stimuli ?? []).map((st) => `${st.file} | ${st.caption}`).join("\n") : "",
           q.prompt,
           ...LETTERS.map((L) => q.options[letters.indexOf(L)]?.text ?? ""),
-          q.rows?.length ? q.answer.toUpperCase().split(",").join(", ") : q.answer.toUpperCase(),
+          !q.options.length ? q.answer : q.rows?.length ? q.answer.toUpperCase().split(",").join(", ") : q.answer.toUpperCase(),
           (q.rows ?? []).map((x) => x.text).join("\n"),
         ]);
       });

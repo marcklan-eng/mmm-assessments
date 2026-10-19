@@ -14,7 +14,7 @@ export default async function Home() {
       <TopBar email={user?.email} right={<Link className="small" href="/admin">Evaluator dashboard</Link>} />
       <main className="wrap">
         <p className="eyebrow">My Mountain Mover</p>
-        <h1>Skills assessments</h1>
+        <h1>Skills Evaluation Assessment (SEA)</h1>
         <p className="muted">
           Candidates receive the link for their assessment in their invite email. Each link below is the shared link to paste into the
           Salesforce email template.

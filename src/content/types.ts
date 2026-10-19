@@ -1,6 +1,7 @@
 export type Stimulus =
   | { type: "image"; file: string; caption: string }
-  | { type: "video"; file: string; caption: string };
+  | { type: "video"; file: string; caption: string }
+  | { type: "audio"; file: string; caption: string };
 
 export type Option = { id: string; text: string };
 
@@ -12,6 +13,8 @@ export type Question = {
    *  Scored all-or-nothing as a single point. */
   rows?: Option[];
   /** Option id — or for a grid, one option id per row joined by commas ("a,b").
+   *  A question with no options is a short-answer question: the candidate types the answer and
+   *  `answer` holds the accepted answer(s), one per line (dates match in any common format).
    *  Server only, never sent to the browser. */
   answer: string;
 };
