@@ -114,7 +114,13 @@ export async function readQuestionTabs(): Promise<QuestionTab[]> {
   const r = await callTarget<{ tabs?: QuestionTab[]; rows?: string[][] | null; url?: string }>(QUESTIONS, "readQuestions");
   if (r.url) sheetUrl = r.url;
   if (r.tabs) return r.tabs;
-  return r.rows ? [{ name: "Questions", rows: r.rows }] : []; // older script: only the Questions tab
+  if (r.rows) return [{ name: "Questions", rows: r.rows }]; // older script: only the Questions tab
+  // A script older than version 3 can't read the per-assessment tabs and returns nothing.
+  throw new Error(
+    "The questions Sheet is running an old version of its Apps Script, so it can't read the assessment tabs. " +
+      "In the Sheet: Extensions → Apps Script, make sure the code is the latest Code.gs (SCRIPT_VERSION = 4 near the top), " +
+      "then Deploy → Manage deployments → ✏️ Edit → Version: New version → Deploy.",
+  );
 }
 
 /** Fills empty assessment tabs (creating them if needed). Tabs that already have content are left alone. */
