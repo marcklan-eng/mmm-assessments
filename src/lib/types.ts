@@ -35,4 +35,8 @@ export type Attempt = {
   retakeAfter?: number;
   sheetSynced?: boolean;
   sheetError?: string;
+  /** Deleted by an evaluator: hidden from the dashboard, and the candidate can take the assessment again. Can be restored. */
+  deletedAt?: number;
+  deletedBy?: string;
+  deleteReason?: string;
 };

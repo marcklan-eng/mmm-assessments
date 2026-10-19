@@ -30,7 +30,8 @@ export async function latestAttempt(slug: string, email: string): Promise<Attemp
   const id = await db.getLatestId(slug, email);
   if (!id) return null;
   const a = await db.getAttempt(id);
-  return a ? finalizeIfExpired(a) : null;
+  if (!a || a.deletedAt) return null; // a deleted attempt doesn't count: the candidate can start again
+  return finalizeIfExpired(a);
 }
 
 export async function getEligibility(slug: string, email: string, sent?: number | null): Promise<Eligibility> {
@@ -96,7 +97,7 @@ export class HttpError extends Error {
 
 export async function getOwnedAttempt(id: string, email: string): Promise<Attempt> {
   const a = await db.getAttempt(id);
-  if (!a || a.email !== email) throw new HttpError(404, "Attempt not found");
+  if (!a || a.email !== email || a.deletedAt) throw new HttpError(404, "Attempt not found");
   return finalizeIfExpired(a);
 }
 
@@ -193,7 +194,7 @@ export async function finalizeIfExpired(a: Attempt): Promise<Attempt> {
 
 /** All attempts, with any expired ones finalized first (used by the dashboard). */
 export async function allAttempts(): Promise<Attempt[]> {
-  const list = await db.listAttempts();
+  const list = (await db.listAttempts()).filter((a) => !a.deletedAt);
   const out: Attempt[] = [];
   for (const a of list) {
     let x = await finalizeIfExpired(a);
@@ -255,3 +256,41 @@ export async function publicView(a: Attempt) {
   };
 }
 export type PublicAttempt = Awaited<ReturnType<typeof publicView>>;
+
+/** Deleted attempts, newest first (for restoring). */
+export async function deletedAttempts(): Promise<Attempt[]> {
+  return (await db.listAttempts()).filter((a) => a.deletedAt).sort((x, y) => (y.deletedAt ?? 0) - (x.deletedAt ?? 0));
+}
+
+/** Evaluator action: hide an attempt and let the candidate take the assessment again. */
+export async function deleteAttempt(id: string, by: string, reason: string): Promise<Attempt> {
+  const a = await db.getAttempt(id);
+  if (!a) throw new HttpError(404, "Attempt not found.");
+  if (a.deletedAt) return a;
+  a.deletedAt = Date.now();
+  a.deletedBy = by;
+  a.deleteReason = reason.trim().slice(0, 300);
+  if (a.status === "in_progress") a.deadline = Math.min(a.deadline, Date.now()); // stop it; nothing more can be saved
+  await db.saveAttempt(a);
+  return a;
+}
+
+/** Undo a delete. Not allowed once the candidate has started a newer attempt. */
+export async function restoreAttempt(id: string): Promise<Attempt> {
+  const a = await db.getAttempt(id);
+  if (!a) throw new HttpError(404, "Attempt not found.");
+  if (!a.deletedAt) return a;
+  const latest = await db.getLatestId(a.slug, a.email);
+  if (latest && latest !== a.id) {
+    const newer = await db.getAttempt(latest);
+    if (newer && !newer.deletedAt && newer.startedAt > a.startedAt) {
+      throw new HttpError(409, "The candidate has already started a new attempt, so this one can’t be restored. Delete the new one first if needed.");
+    }
+  }
+  delete a.deletedAt;
+  delete a.deletedBy;
+  delete a.deleteReason;
+  await db.saveAttempt(a);
+  await db.setLatestId(a.slug, a.email, a.id);
+  return a;
+}

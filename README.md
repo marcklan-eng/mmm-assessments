@@ -162,6 +162,13 @@ The earliest time ever seen is kept, so changing the date in the link can't exte
 the link has expired and the assessment can't be started. Someone already in the middle of the assessment can finish it. To give
 a candidate a new 48 hours, use **Reopen an expired link** at the bottom of the dashboard (they use the same link again).
 
+## Deleting an attempt
+On a candidate's attempt page, **Delete attempt…** (editors of the questions Sheet only) asks for a reason, then hides the
+attempt from the dashboard, its numbers and the CSV export, and lets the candidate take that assessment again with the same
+link (e.g. a test attempt, or a technical problem). Nothing is erased: **N deleted** next to the candidates list opens the
+Deleted attempts page, where any attempt can be opened and **restored** (unless the candidate has since started a new one).
+The row already written to the results Sheet stays; delete it there by hand if needed.
+
 ## Content notes to revisit (kept as-is for the prototype)
 
 - **Q1 and Q4** have the same answer, and Q4 gives away Q1.

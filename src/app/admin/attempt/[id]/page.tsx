@@ -9,6 +9,8 @@ import { getMeta } from "@/content/assessments";
 import { getContent } from "@/content";
 import { fmtDuration } from "@/lib/google";
 import { ACTIVITY_LABELS } from "@/lib/types";
+import DeleteAttempt from "@/components/DeleteAttempt";
+import { isEditor } from "@/lib/evaluators";
 import { answerText, isCorrect, isPerRow, itemsOf, numberLabel, pointsEarned, pointsOf } from "@/content/answers";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +23,8 @@ export default async function AttemptDetail({ params }: { params: Promise<{ id: 
       {async (user) => {
         const raw = await db.getAttempt(id);
         if (!raw) notFound();
-        const a = await finalizeIfExpired(raw);
+        const a = raw.deletedAt ? raw : await finalizeIfExpired(raw);
+        const canDelete = await isEditor(user.email);
         const content = await getContent(a.slug, a.version ?? 0);
         const meta = getMeta(a.slug);
         let n = 0;
@@ -30,8 +33,19 @@ export default async function AttemptDetail({ params }: { params: Promise<{ id: 
             <TopBar email={user.email} />
             <main className="wrap-wide" style={{ maxWidth: 980 }}>
               <Link href={`/admin?assessment=${a.slug}`} className="small">← Back to dashboard</Link>
-              <h1 style={{ marginTop: 10 }}>{a.name}</h1>
-              <p className="muted">{a.email} · signed in with {a.provider} · {meta?.title} · question set v{a.version ?? 0}</p>
+              <div className="dash-head" style={{ marginTop: 10 }}>
+                <div>
+                  <h1 style={{ marginBottom: 4 }}>{a.name}</h1>
+                  <p className="muted" style={{ marginTop: 0 }}>{a.email} · signed in with {a.provider} · {meta?.title} · question set v{a.version ?? 0}</p>
+                </div>
+                {canDelete && <DeleteAttempt id={a.id} name={a.name} title={meta?.title ?? "this"} deleted={Boolean(a.deletedAt)} />}
+              </div>
+              {a.deletedAt && (
+                <div className="notice notice-warn" style={{ marginBottom: 14 }}>
+                  <b>Deleted</b> by {a.deletedBy} on {dt(a.deletedAt)}{a.deleteReason ? <> · Reason: “{a.deleteReason}”</> : null}. It’s hidden from the
+                  dashboard and the candidate can take the assessment again. Restore it to undo.
+                </div>
+              )}
 
               <section className="kpis">
                 <div className="kpi"><div className="k-label">Score</div><div className="k-value">{a.score != null ? `${a.score}/${a.total}` : "—"}</div><div className="k-sub">{a.percent != null ? `${a.percent}%` : "In progress"}</div></div>

@@ -167,3 +167,4 @@ tr.muted td { color: var(--text-3); }
   .qe-match-row { grid-template-columns: 1fr auto; }
   .qe-arrow { display: none; }
 }
+.btn-danger-fill { background: var(--bad) !important; border-color: var(--bad) !important; color: #fff !important; }

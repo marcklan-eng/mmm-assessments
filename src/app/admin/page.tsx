@@ -3,7 +3,7 @@ import "./admin.css";
 import TopBar from "@/components/TopBar";
 import AdminGate from "@/components/AdminGate";
 import { BarChart, LineChart, Legend, Meter } from "@/components/Charts";
-import { allAttempts } from "@/lib/attempts";
+import { allAttempts, deletedAttempts } from "@/lib/attempts";
 import { applyFilters, overview, parseFilters, questionStats, roleBreakdown, sectionStats, weeklyTrend } from "@/lib/stats";
 import { ASSESSMENTS, getMeta } from "@/content/assessments";
 import { getContent } from "@/content";
@@ -253,7 +253,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
               <div className="panel section-gap">
                 <h2>Candidates</h2>
-                <p className="sub">{list.length} attempt{list.length === 1 ? "" : "s"} · click a name for answers and activity{list.length > 15 ? " · scroll inside the list for more" : ""}</p>
+                <p className="sub">{list.length} attempt{list.length === 1 ? "" : "s"} · click a name for answers and activity{list.length > 15 ? " · scroll inside the list for more" : ""}{await (async () => { const n = (await deletedAttempts()).length; return n ? <> · <Link href="/admin/deleted">{n} deleted</Link></> : null; })()}</p>
                 <div className="table-scroll candidates-scroll">
                   <table className="data">
                     <thead>
