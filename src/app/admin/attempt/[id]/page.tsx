@@ -9,7 +9,7 @@ import { getMeta } from "@/content/assessments";
 import { getContent } from "@/content";
 import { fmtDuration } from "@/lib/google";
 import { ACTIVITY_LABELS } from "@/lib/types";
-import { answerText, isCorrect, numberLabel, pointsEarned, pointsOf } from "@/content/answers";
+import { answerText, isCorrect, isPerRow, itemsOf, numberLabel, pointsEarned, pointsOf } from "@/content/answers";
 
 export const dynamic = "force-dynamic";
 const dt = (ms?: number) => (ms ? new Date(ms).toLocaleString("en-US") : "—");
@@ -74,18 +74,18 @@ export default async function AttemptDetail({ params }: { params: Promise<{ id: 
                     <table className="data"><tbody>
                       {s.questions.map((q) => {
                         const start = n + 1;
-                        n += pointsOf(q);
+                        n += itemsOf(q);
                         const chosen = a.answers[q.id];
                         const ok = isCorrect(q, chosen);
                         return (
                           <tr key={q.id}>
-                            <td className="num" style={{ width: 64, whiteSpace: "nowrap" }}>Q{numberLabel(start, pointsOf(q))}</td>
+                            <td className="num" style={{ width: 64, whiteSpace: "nowrap" }}>Q{numberLabel(start, itemsOf(q))}</td>
                             <td>
                               <div>{q.prompt}</div>
                               <div className="small" style={{ marginTop: 4 }}>
-                                {!chosen ? <span className="pill pill-warn">Blank</span> : ok ? <span className="pill pill-good">✓ Correct{pointsOf(q) > 1 ? ` ${pointsOf(q)}/${pointsOf(q)}` : ""}</span> : pointsOf(q) > 1 && pointsEarned(q, chosen) > 0 ? <span className="pill pill-warn">{pointsEarned(q, chosen)}/{pointsOf(q)} rows correct</span> : <span className="pill pill-bad">✗ Incorrect</span>}{" "}
-                                {chosen && !(pointsOf(q) > 1) && <span>{q.options.length ? "Chose" : "Answered"}: {answerText(q, chosen)}</span>}
-                                {pointsOf(q) > 1 && q.rows ? (
+                                {!chosen ? <span className="pill pill-warn">Blank</span> : ok ? <span className="pill pill-good">✓ Correct{pointsOf(q) > 1 ? ` ${pointsOf(q)}/${pointsOf(q)}` : ""}</span> : isPerRow(q) && pointsEarned(q, chosen) > 0 ? <span className="pill pill-warn">{pointsEarned(q, chosen)}/{pointsOf(q)} rows correct</span> : <span className="pill pill-bad">✗ Incorrect</span>}{" "}
+                                {chosen && !isPerRow(q) && <span>{q.options.length ? "Chose" : "Answered"}: {answerText(q, chosen)}</span>}
+                                {isPerRow(q) && q.rows ? (
                                   <ul className="clean" style={{ margin: "6px 0 0" }}>
                                     {q.rows.map((r, ri) => {
                                       const got = (chosen ?? "").split(",")[ri], want = q.answer.split(",")[ri];

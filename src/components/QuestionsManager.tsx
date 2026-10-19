@@ -1,5 +1,5 @@
 "use client";
-import { isDateQuestion, numberLabel, pointsOf } from "@/content/answers";
+import { isDateQuestion, itemsOf, numberLabel } from "@/content/answers";
 import { useCallback, useEffect, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import type { ParseResult, ParsedAssessment } from "@/lib/questionbank";
@@ -142,7 +142,7 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
               <div className="qb-head">
                 <div>
                   <b>{a.title}</b>
-                  <div className="small muted">{a.sectionCount} section{a.sectionCount === 1 ? "" : "s"} · {a.questionCount} question{a.questionCount === 1 ? "" : "s"}</div>
+                  <div className="small muted">{a.sectionCount} section{a.sectionCount === 1 ? "" : "s"} · {a.questionCount} question{a.questionCount === 1 ? "" : "s"}{a.points !== a.questionCount ? ` · ${a.points} points` : ""}</div>
                 </div>
                 <div className="btn-row" style={{ alignItems: "center" }}>
                   {a.errors.length > 0 ? (
@@ -222,10 +222,10 @@ function Preview({ a }: { a: ParsedAssessment }) {
           )}
           {s.questions.map((q) => {
             const start = n + 1;
-            n += pointsOf(q);
+            n += itemsOf(q);
             return (
               <div key={q.id} className="qb-q">
-                <div><b>{numberLabel(start, pointsOf(q))}.</b> {q.prompt}</div>
+                <div><b>{numberLabel(start, itemsOf(q))}.</b> {q.prompt}{q.points && q.points > 1 && !q.rows?.length ? <span className="pill pill-neutral" style={{ marginLeft: 8 }}>{q.points} points</span> : null}</div>
                 {(q.media ?? []).length > 0 && (
                   <div className="qb-media">
                     {(q.media ?? []).map((st) => (

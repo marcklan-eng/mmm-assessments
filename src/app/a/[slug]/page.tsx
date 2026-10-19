@@ -1,4 +1,4 @@
-import { totalPoints } from "@/content/answers";
+import { totalItems } from "@/content/answers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import TopBar from "@/components/TopBar";
@@ -68,7 +68,7 @@ export default async function AssessmentLanding({ params }: { params: Promise<{ 
           <>
             {content?.intro.map((p, i) => <p key={i} className={i ? "muted" : ""}>{p}</p>)}
             <div className="facts">
-              <div className="fact"><b>{content ? totalPoints(allQuestions(content)) : 0}</b><span>{content && allQuestions(content).every((q) => q.options.length) ? "multiple-choice questions" : "questions"}</span></div>
+              <div className="fact"><b>{content ? totalItems(allQuestions(content)) : 0}</b><span>{content && allQuestions(content).every((q) => q.options.length) ? "multiple-choice questions" : "questions"}</span></div>
               <div className="fact"><b>{meta.timeLimitMinutes} minutes</b><span>one timer for the whole assessment</span></div>
               <div className="fact"><b>One attempt</b></div>
             </div>

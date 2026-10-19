@@ -4,7 +4,7 @@
 import type { Attempt } from "./types";
 import { getMeta } from "@/content/assessments";
 import { getContent, allQuestions, type QuestionSet } from "@/content";
-import { answerText, isCorrect, pointsOf } from "@/content/answers";
+import { answerText, isCorrect, isPerRow } from "@/content/answers";
 
 type Target = { url?: string; secret?: string; label: string };
 
@@ -183,7 +183,7 @@ export async function attemptRow(a: Attempt, preloaded?: QuestionSet): Promise<{
   let n = 0;
   for (const q of qs) {
     const chosen = a.answers[q.id];
-    if (pointsOf(q) > 1 && q.rows) {
+    if (isPerRow(q) && q.rows) {
       // A grid scored per row: one numbered column per row, e.g. "Q6 Voicemail1".
       const got = (chosen ?? "").split(","), want = q.answer.split(",");
       q.rows.forEach((r, ri) => {

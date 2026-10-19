@@ -1,7 +1,7 @@
 // Answer helpers shared by the server and the browser (no answer keys in here).
 import type { Option } from "./types";
 
-type Q = { options: Option[]; rows?: Option[] | null; scoring?: "per-row"; multi?: boolean | null };
+type Q = { options: Option[]; rows?: Option[] | null; scoring?: "per-row"; multi?: boolean | null; points?: number | null };
 
 /** True when every part of the question has an answer. */
 export function isAnswered(q: Q, value: string | undefined): boolean {
@@ -105,7 +105,12 @@ export function isCorrect(q: Q & { answer: string }, value: string | undefined):
 
 /** Points a question is worth: one per row for a per-row grid, otherwise 1. */
 export function pointsOf(q: Q): number {
-  return q.rows?.length && q.scoring === "per-row" ? q.rows.length : 1;
+  return isPerRow(q) ? q.rows!.length : q.points && q.points > 0 ? q.points : 1;
+}
+
+/** A matching grid scored 1 point per row (each row is numbered as its own question). */
+export function isPerRow(q: Q): boolean {
+  return Boolean(q.rows?.length && q.scoring === "per-row");
 }
 
 /** Points earned on a question. */
@@ -115,11 +120,18 @@ export function pointsEarned(q: Q & { answer: string }, value: string | undefine
     const want = q.answer.split(","), got = value.split(",");
     return want.filter((w, i) => w && got[i] === w).length;
   }
-  return isCorrect(q, value) ? 1 : 0;
+  return isCorrect(q, value) ? pointsOf(q) : 0;
 }
 
 /** How many numbered items a question counts as (a per-row grid: one per row). */
-export const itemsOf = pointsOf;
+export function itemsOf(q: Q): number {
+  return isPerRow(q) ? q.rows!.length : 1;
+}
+
+/** Number of numbered questions (a per-row grid counts once per row). */
+export function totalItems(qs: Q[]): number {
+  return qs.reduce((t, q) => t + itemsOf(q), 0);
+}
 
 /** Answered items: rows answered for a per-row grid, otherwise 0 or 1. */
 export function answeredItems(q: Q, value: string | undefined): number {

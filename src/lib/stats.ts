@@ -1,6 +1,6 @@
 import type { Attempt } from "./types";
 import { allQuestions, type QuestionSet } from "@/content";
-import { answerText, isAnswered, isCorrect, pointsEarned, pointsOf } from "@/content/answers";
+import { answerText, isAnswered, isCorrect, isPerRow, pointsEarned, pointsOf } from "@/content/answers";
 
 export type Filters = {
   assessment: string; // slug or "all"
@@ -104,7 +104,7 @@ export function questionStats(list: Attempt[], content: QuestionSet) {
   const items: Item[] = [];
   for (const s of content.sections) {
     for (const q of s.questions) {
-      if (pointsOf(q) > 1 && q.rows) {
+      if (isPerRow(q) && q.rows) {
         const want = q.answer.split(",");
         const title = q.prompt.split("\n")[0];
         q.rows.forEach((r, ri) =>

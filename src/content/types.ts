@@ -16,6 +16,8 @@ export type Question = {
   scoring?: "per-row";
   /** "Check all that apply": answer is the sorted set of correct option ids ("a,d"). 1 point, exact set. */
   multi?: boolean;
+  /** Points for a right answer (default 1). Not used by per-row grids, which score 1 per row. */
+  points?: number;
   /** Images (etc.) shown with this question, between the question text and the choices. */
   media?: Stimulus[];
   /** Option id — or for a grid, one option id per row joined by commas ("a,b").

@@ -18,7 +18,7 @@ import { ASSESSMENTS } from "@/content/assessments";
 import { allQuestions, builtIn, getContent, type QuestionSet } from "@/content";
 import type { AssessmentContent, Section, Stimulus } from "@/content/types";
 import { availableMedia, mediaKind } from "./media";
-import { totalPoints } from "@/content/answers";
+import { totalItems, totalPoints } from "@/content/answers";
 
 export const QUESTION_HEADERS = [
   "Assessment",
@@ -82,7 +82,7 @@ function parseMedia(cell: string, row: number, issues: Issue[]): Stimulus[] {
 
 /** Strip volatile fields so two sets can be compared. */
 function fingerprint(c: AssessmentContent) {
-  return JSON.stringify(c.sections.map((s) => [s.title, s.description, s.stimuli, s.questions.map((q) => [q.prompt, q.options, q.rows ?? null, q.scoring ?? null, q.multi ?? null, q.media ?? null, q.answer])]));
+  return JSON.stringify(c.sections.map((s) => [s.title, s.description, s.stimuli, s.questions.map((q) => [q.prompt, q.options, q.rows ?? null, q.scoring ?? null, q.multi ?? null, q.points ?? null, q.media ?? null, q.answer])]));
 }
 
 /** Header for a per-assessment tab (no Assessment column needed). */
@@ -217,9 +217,13 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
     const gridRows = cell(r, "Rows").split("\n").map((x) => x.trim()).filter(Boolean);
     const scoringCell = norm(cell(r, "Scoring")).replace(/[^a-z]/g, "");
     let perRow = false;
-    if (["perrow", "eachrow", "perrows", "1perrow", "oneperrow", "partial"].includes(scoringCell)) perRow = true;
+    const pointsMatch = cell(r, "Scoring").match(/^\s*(\d+(?:\.\d+)?)\s*(?:points?|pts?)?\s*$/i);
+    const pts = pointsMatch ? Number(pointsMatch[1]) : null;
+    if (pts != null) {
+      if (!(pts > 0 && pts <= 20)) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `Scoring "${cell(r, "Scoring")}" should be a number of points between 1 and 20.` });
+    } else if (["perrow", "eachrow", "perrows", "1perrow", "oneperrow", "partial"].includes(scoringCell)) perRow = true;
     else if (scoringCell && !["allornothing", "all", "default"].includes(scoringCell)) {
-      d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `Scoring should be "Per row" or blank (all or nothing), not "${cell(r, "Scoring")}".` });
+      d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `Scoring should be "Per row", a number of points (e.g. 2), or blank (1 point), not "${cell(r, "Scoring")}".` });
     }
     if (perRow && !gridRows.length) d.warnings.push({ row: rowNum, where: whereOf(rowNum), message: `Scoring "Per row" only applies to matching grids (questions with Rows); ignored here.` });
     const correct = cell(r, "Correct").toUpperCase().replace(/[^A-F]/g, "");
@@ -251,6 +255,7 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
       ...(gridRows.length ? { rows: gridRows.map((t, k) => ({ id: `r${k + 1}`, text: t })) } : {}),
       ...(gridRows.length && perRow ? { scoring: "per-row" as const } : {}),
       ...(!gridRows.length && correct.length > 1 ? { multi: true } : {}),
+      ...(pts != null && pts > 0 && pts !== 1 && !perRow ? { points: pts } : {}),
       ...(qMedia.length ? { media: qMedia } : {}),
       answer: gridRows.length
         ? [...correct].map((L) => L.toLowerCase()).join(",")
@@ -279,7 +284,7 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
       slug,
       title: d.title,
       content,
-      questionCount: totalPoints(allQuestions(content)), // numbered items (a per-row grid counts once per row)
+      questionCount: totalItems(allQuestions(content)), // numbered items (a per-row grid counts once per row)
       points: totalPoints(allQuestions(content)),
       sectionCount: d.sections.length,
       errors: d.errors,
@@ -312,7 +317,7 @@ export async function seedTabs(): Promise<{ name: string; rows: string[][] }[]> 
           ...LETTERS.map((L) => q.options[letters.indexOf(L)]?.text ?? ""),
           !q.options.length ? q.answer : q.rows?.length || q.multi ? q.answer.toUpperCase().split(",").join(", ") : q.answer.toUpperCase(),
           (q.rows ?? []).map((x) => x.text).join("\n"),
-          q.scoring === "per-row" ? "Per row" : "",
+          q.scoring === "per-row" ? "Per row" : q.points ? String(q.points) : "",
           (q.media ?? []).map((st) => `${st.file} | ${st.caption}`).join("\n"),
         ]);
       });

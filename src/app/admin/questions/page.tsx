@@ -1,4 +1,4 @@
-import { totalPoints } from "@/content/answers";
+import { totalItems } from "@/content/answers";
 import Link from "next/link";
 import "../admin.css";
 import TopBar from "@/components/TopBar";
@@ -23,7 +23,7 @@ export default async function QuestionsPage() {
               slug: a.slug,
               title: a.title,
               version: c?.version ?? null,
-              questions: c ? totalPoints(allQuestions(c)) : 0,
+              questions: c ? totalItems(allQuestions(c)) : 0,
               publishedAt: c?.publishedAt ?? null,
               publishedBy: c?.publishedBy ?? null,
             };
