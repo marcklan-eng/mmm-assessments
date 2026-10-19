@@ -9,7 +9,7 @@ import { getMeta } from "@/content/assessments";
 import { getContent } from "@/content";
 import { fmtDuration } from "@/lib/google";
 import { ACTIVITY_LABELS } from "@/lib/types";
-import { answerText, isCorrect } from "@/content/answers";
+import { answerText, isCorrect, pointsEarned, pointsOf } from "@/content/answers";
 
 export const dynamic = "force-dynamic";
 const dt = (ms?: number) => (ms ? new Date(ms).toLocaleString("en-US") : "—");
@@ -82,7 +82,7 @@ export default async function AttemptDetail({ params }: { params: Promise<{ id: 
                             <td>
                               <div>{q.prompt}</div>
                               <div className="small" style={{ marginTop: 4 }}>
-                                {!chosen ? <span className="pill pill-warn">Blank</span> : ok ? <span className="pill pill-good">✓ Correct</span> : <span className="pill pill-bad">✗ Incorrect</span>}{" "}
+                                {!chosen ? <span className="pill pill-warn">Blank</span> : ok ? <span className="pill pill-good">✓ Correct{pointsOf(q) > 1 ? ` ${pointsOf(q)}/${pointsOf(q)}` : ""}</span> : pointsOf(q) > 1 && pointsEarned(q, chosen) > 0 ? <span className="pill pill-warn">{pointsEarned(q, chosen)}/{pointsOf(q)} rows correct</span> : <span className="pill pill-bad">✗ Incorrect</span>}{" "}
                                 {chosen && <span>{q.options.length ? "Chose" : "Answered"}: {answerText(q, chosen)}</span>}
                                 {!ok && <div className="muted">Correct: {answerText(q, q.answer)}</div>}
                               </div>

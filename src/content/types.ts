@@ -12,6 +12,8 @@ export type Question = {
   /** Matching grid: one row per item to match; candidates pick one option (column) per row.
    *  Scored all-or-nothing as a single point. */
   rows?: Option[];
+  /** Grid scoring: "per-row" = 1 point for each row answered correctly. Default: 1 point, all or nothing. */
+  scoring?: "per-row";
   /** Option id — or for a grid, one option id per row joined by commas ("a,b").
    *  A question with no options is a short-answer question: the candidate types the answer and
    *  `answer` holds the accepted answer(s), one per line (dates match in any common format).

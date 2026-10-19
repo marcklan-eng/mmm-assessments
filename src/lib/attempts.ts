@@ -4,7 +4,7 @@ import type { ActivityType, Attempt } from "./types";
 import { getMeta, RETAKE_MONTHS } from "@/content/assessments";
 import { getContent, allQuestions, currentVersion } from "@/content";
 import { appendToSheet, sheetConfigured } from "./google";
-import { isCorrect, isTextQuestion } from "@/content/answers";
+import { isTextQuestion, pointsEarned, totalPoints } from "@/content/answers";
 import type { SessionUser } from "./auth";
 
 /** Answers arriving up to this long after the deadline are still accepted (network delay). */
@@ -126,14 +126,15 @@ export async function finalize(a: Attempt, timedOut: boolean): Promise<Attempt> 
   if (a.status !== "in_progress") return a;
   const meta = getMeta(a.slug)!;
   const qs = allQuestions((await getContent(a.slug, a.version ?? 0))!);
-  const score = qs.filter((q) => isCorrect(q, a.answers[q.id])).length;
+  const score = qs.reduce((t, q) => t + pointsEarned(q, a.answers[q.id]), 0);
+  const total = totalPoints(qs);
   const now = Date.now();
   a.status = timedOut ? "timed_out" : "submitted";
   a.submittedAt = timedOut ? Math.min(now, a.deadline) : now;
   a.score = score;
-  a.total = qs.length;
-  a.percent = Math.round((score / qs.length) * 1000) / 10;
-  a.passed = (score / qs.length) * 100 >= meta.passPercent;
+  a.total = total;
+  a.percent = Math.round((score / total) * 1000) / 10;
+  a.passed = (score / total) * 100 >= meta.passPercent;
   a.retakeAfter = addMonths(a.submittedAt, RETAKE_MONTHS);
   await db.saveAttempt(a);
   await syncToSheet(a);

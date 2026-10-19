@@ -4,7 +4,7 @@
 import type { Attempt } from "./types";
 import { getMeta } from "@/content/assessments";
 import { getContent, allQuestions, type QuestionSet } from "@/content";
-import { answerText, isCorrect } from "@/content/answers";
+import { answerText, isCorrect, pointsEarned, pointsOf } from "@/content/answers";
 
 type Target = { url?: string; secret?: string; label: string };
 
@@ -183,7 +183,9 @@ export async function attemptRow(a: Attempt, preloaded?: QuestionSet): Promise<{
   qs.forEach((q, i) => {
     headers.push(`Q${i + 1}`);
     const chosen = a.answers[q.id];
-    values.push(!chosen ? "— (blank)" : `${isCorrect(q, chosen) ? "✓" : "✗"} ${answerText(q, chosen)}`);
+    const pts = pointsOf(q);
+    const mark = pts > 1 ? `${pointsEarned(q, chosen)}/${pts}` : isCorrect(q, chosen) ? "✓" : "✗";
+    values.push(!chosen ? "— (blank)" : `${mark} ${answerText(q, chosen)}`);
   });
   return { headers, values };
 }

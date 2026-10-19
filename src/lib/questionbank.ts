@@ -10,11 +10,13 @@
 // - Short answer: leave A–F blank and type the accepted answer in Correct (several on separate lines).
 //   Case, spacing and punctuation don't matter, and dates match in any format (06/18/1987 = June 18, 1987).
 // - Rows (optional): makes a matching grid. One item per line; candidates pick one choice (A–F) per row.
-//   Correct then lists one letter per row, in order, e.g. "A, B". Scored as one point, all or nothing.
+//   Correct then lists one letter per row, in order, e.g. "A, B". Scored as one point, all or nothing,
+//   unless Scoring says "Per row" (1 point for each row answered correctly).
 import { ASSESSMENTS } from "@/content/assessments";
 import { allQuestions, builtIn, getContent, type QuestionSet } from "@/content";
 import type { AssessmentContent, Section, Stimulus } from "@/content/types";
 import { availableMedia, mediaKind } from "./media";
+import { totalPoints } from "@/content/answers";
 
 export const QUESTION_HEADERS = [
   "Assessment",
@@ -30,6 +32,7 @@ export const QUESTION_HEADERS = [
   "F",
   "Correct",
   "Rows",
+  "Scoring",
 ];
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
@@ -39,6 +42,7 @@ export type ParsedAssessment = {
   title: string;
   content: AssessmentContent;
   questionCount: number;
+  points: number;
   sectionCount: number;
   errors: Issue[];
   warnings: Issue[];
@@ -75,7 +79,7 @@ function parseMedia(cell: string, row: number, issues: Issue[]): Stimulus[] {
 
 /** Strip volatile fields so two sets can be compared. */
 function fingerprint(c: AssessmentContent) {
-  return JSON.stringify(c.sections.map((s) => [s.title, s.description, s.stimuli, s.questions.map((q) => [q.prompt, q.options, q.rows ?? null, q.answer])]));
+  return JSON.stringify(c.sections.map((s) => [s.title, s.description, s.stimuli, s.questions.map((q) => [q.prompt, q.options, q.rows ?? null, q.scoring ?? null, q.answer])]));
 }
 
 /** Header for a per-assessment tab (no Assessment column needed). */
@@ -206,6 +210,13 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
     if (filled.length < 2) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: "A question needs at least 2 choices (A and B), or none for a typed answer." });
 
     const gridRows = cell(r, "Rows").split("\n").map((x) => x.trim()).filter(Boolean);
+    const scoringCell = norm(cell(r, "Scoring")).replace(/[^a-z]/g, "");
+    let perRow = false;
+    if (["perrow", "eachrow", "perrows", "1perrow", "oneperrow", "partial"].includes(scoringCell)) perRow = true;
+    else if (scoringCell && !["allornothing", "all", "default"].includes(scoringCell)) {
+      d.errors.push({ row: rowNum, where: whereOf(rowNum), message: `Scoring should be "Per row" or blank (all or nothing), not "${cell(r, "Scoring")}".` });
+    }
+    if (perRow && !gridRows.length) d.warnings.push({ row: rowNum, where: whereOf(rowNum), message: `Scoring "Per row" only applies to matching grids (questions with Rows); ignored here.` });
     const correct = cell(r, "Correct").toUpperCase().replace(/[^A-F]/g, "");
     if (!correct) d.errors.push({ row: rowNum, where: whereOf(rowNum), message: "Correct is blank. Enter the letter of the right choice (A–F)." });
     else if (gridRows.length) {
@@ -230,6 +241,7 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
       prompt,
       options: filled.map((c) => ({ id: c.letter.toLowerCase(), text: c.text })),
       ...(gridRows.length ? { rows: gridRows.map((t, k) => ({ id: `r${k + 1}`, text: t })) } : {}),
+      ...(gridRows.length && perRow ? { scoring: "per-row" as const } : {}),
       answer: gridRows.length ? [...correct].map((L) => L.toLowerCase()).join(",") : correct.toLowerCase(),
     });
   });
@@ -254,6 +266,7 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
       title: d.title,
       content,
       questionCount: allQuestions(content).length,
+      points: totalPoints(allQuestions(content)),
       sectionCount: d.sections.length,
       errors: d.errors,
       warnings: d.warnings,
@@ -285,6 +298,7 @@ export async function seedTabs(): Promise<{ name: string; rows: string[][] }[]> 
           ...LETTERS.map((L) => q.options[letters.indexOf(L)]?.text ?? ""),
           !q.options.length ? q.answer : q.rows?.length ? q.answer.toUpperCase().split(",").join(", ") : q.answer.toUpperCase(),
           (q.rows ?? []).map((x) => x.text).join("\n"),
+          q.scoring === "per-row" ? "Per row" : "",
         ]);
       });
     }

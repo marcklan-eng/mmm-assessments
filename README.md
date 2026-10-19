@@ -108,7 +108,8 @@ Without `QUESTIONS_WEBHOOK_URL`, the Questions tab lives in the results Sheet in
 | Question | The question text |
 | A – F | The choices. At least A and B; leave the unused ones blank. Leave **all** blank for a **typed-answer** question |
 | Correct | The letter of the correct choice. For a typed answer, the accepted answer (several on separate lines). Case, spacing and punctuation don't matter, and dates match in any format (`06/18/1987` = `June 18, 1987`) |
-| Rows | Optional. Makes a **matching grid**: one item per line. Candidates pick one choice (A–F) for each row, and Correct lists one letter per row, e.g. `A, B`. It's worth 1 point, all rows must be right |
+| Rows | Optional. Makes a **matching grid**: one item per line. Candidates pick one choice (A–F) for each row, and Correct lists one letter per row, e.g. `A, B`. By default it's worth 1 point, all rows must be right |
+| Scoring | Optional, for matching grids. `Per row` makes each row worth 1 point (e.g. 5 voicemails = 5 points). Blank = 1 point, all or nothing |
 
 3. Upload any new images, videos or audio on the same page, then use their file names in **Section Media**.
 4. Click **Check again**. Every row is checked, and problems are listed with their row number. Use **Preview** to review an assessment the way candidates will see it, with the correct answers marked.

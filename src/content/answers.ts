@@ -1,7 +1,7 @@
 // Answer helpers shared by the server and the browser (no answer keys in here).
 import type { Option } from "./types";
 
-type Q = { options: Option[]; rows?: Option[] | null };
+type Q = { options: Option[]; rows?: Option[] | null; scoring?: "per-row" };
 
 /** True when every part of the question has an answer. */
 export function isAnswered(q: Q, value: string | undefined): boolean {
@@ -82,4 +82,24 @@ export function isCorrect(q: Q & { answer: string }, value: string | undefined):
   if (!value) return false;
   if (isTextQuestion(q)) return textMatches(q.answer, value);
   return value === q.answer;
+}
+
+/** Points a question is worth: one per row for a per-row grid, otherwise 1. */
+export function pointsOf(q: Q): number {
+  return q.rows?.length && q.scoring === "per-row" ? q.rows.length : 1;
+}
+
+/** Points earned on a question. */
+export function pointsEarned(q: Q & { answer: string }, value: string | undefined): number {
+  if (!value) return 0;
+  if (q.rows?.length && q.scoring === "per-row") {
+    const want = q.answer.split(","), got = value.split(",");
+    return want.filter((w, i) => w && got[i] === w).length;
+  }
+  return isCorrect(q, value) ? 1 : 0;
+}
+
+/** Total points for a list of questions. */
+export function totalPoints(qs: Q[]): number {
+  return qs.reduce((t, q) => t + pointsOf(q), 0);
 }

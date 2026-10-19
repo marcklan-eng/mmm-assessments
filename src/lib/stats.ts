@@ -1,6 +1,6 @@
 import type { Attempt } from "./types";
 import { allQuestions, type QuestionSet } from "@/content";
-import { answerText, isAnswered, isCorrect } from "@/content/answers";
+import { answerText, isAnswered, isCorrect, pointsEarned, pointsOf } from "@/content/answers";
 
 export type Filters = {
   assessment: string; // slug or "all"
@@ -102,13 +102,15 @@ export function questionStats(list: Attempt[], content: QuestionSet) {
   return allQuestions(content)
     .map((q, i) => {
       const counts: Record<string, number> = {};
-      let wrong = 0;
+      let wrong = 0; // missed share, summed over attempts (a per-row grid can be partly missed)
       let blank = 0;
+      const pts = pointsOf(q);
       for (const a of done) {
         const c = a.answers[q.id];
-        if (!isAnswered(q, c)) { blank++; wrong++; continue; }
+        if (!c) { blank++; wrong++; continue; }
+        if (!isAnswered(q, c)) blank++;
         counts[c] = (counts[c] ?? 0) + 1;
-        if (!isCorrect(q, c)) wrong++;
+        wrong += 1 - pointsEarned(q, c) / pts;
       }
       const topWrong = Object.entries(counts)
         .filter(([id]) => !isCorrect(q, id))
@@ -134,8 +136,8 @@ export function sectionStats(list: Attempt[], content: QuestionSet) {
   const done = list.filter((a) => a.status !== "in_progress" && a.slug === slug && (a.version ?? 0) === content.version);
   return content.sections.map((s) => {
     let right = 0;
-    for (const a of done) for (const q of s.questions) if (isCorrect(q, a.answers[q.id])) right++;
-    const possible = done.length * s.questions.length;
+    for (const a of done) for (const q of s.questions) right += pointsEarned(q, a.answers[q.id]);
+    const possible = done.length * s.questions.reduce((t, q) => t + pointsOf(q), 0);
     return { title: s.title, pct: possible ? (right / possible) * 100 : null };
   });
 }

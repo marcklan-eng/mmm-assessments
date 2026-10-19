@@ -141,7 +141,7 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
               <div className="qb-head">
                 <div>
                   <b>{a.title}</b>
-                  <div className="small muted">{a.sectionCount} section{a.sectionCount === 1 ? "" : "s"} · {a.questionCount} question{a.questionCount === 1 ? "" : "s"}</div>
+                  <div className="small muted">{a.sectionCount} section{a.sectionCount === 1 ? "" : "s"} · {a.questionCount} question{a.questionCount === 1 ? "" : "s"}{a.points !== a.questionCount ? ` · ${a.points} points` : ""}</div>
                 </div>
                 <div className="btn-row" style={{ alignItems: "center" }}>
                   {a.errors.length > 0 ? (
@@ -235,7 +235,7 @@ function Preview({ a }: { a: ParsedAssessment }) {
                         <li key={o.id}><span className="qb-letter">{o.id.toUpperCase()}</span> {o.text}</li>
                       ))}
                     </ul>
-                    <div className="small" style={{ marginTop: 6 }}>Matching grid (1 point, all rows must be right):</div>
+                    <div className="small" style={{ marginTop: 6 }}>{q.scoring === "per-row" ? `Matching grid (${q.rows.length} points, 1 per row):` : "Matching grid (1 point, all rows must be right):"}</div>
                     <ul>
                       {q.rows.map((r, ri) => {
                         const col = q.answer.split(",")[ri];
