@@ -67,7 +67,18 @@ export const ASSESSMENTS: AssessmentMeta[] = [
       "We appreciate your interest in the Health Educator position and wish you the best of luck with your assessment!",
     ],
   },
-  { slug: "dental-receptionist", title: "Dental Receptionist", status: "coming-soon", ...base },
+  {
+    slug: "dental-receptionist",
+    title: "Dental Receptionist",
+    status: "coming-soon",
+    ...base,
+    intro: [
+      "This test evaluates your key skills for a dental receptionist role, including patient intake, record management, appointment scheduling, dental terminology, insurance and billing, and workflow coordination. You’ll answer multiple-choice and scenario-based questions that reflect real tasks in a dental office.",
+      "Ensure you have a stable internet connection before starting the assessment. Please note that you have 30 minutes to complete this assessment. Manage your time accordingly.",
+      "If you have any questions or require assistance, please contact lead@mymountainmover.com.",
+      "We appreciate your interest in the dental receptionist position and wish you the best of luck with your assessment!",
+    ],
+  },
   { slug: "dental-biller", title: "Dental Biller", status: "coming-soon", ...base },
   { slug: "general-business-va", title: "General Business VA", status: "coming-soon", ...base },
 
