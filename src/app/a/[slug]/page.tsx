@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import SignIn from "@/components/SignIn";
 import StartForm from "@/components/StartForm";
+import PrivacySummary from "@/components/PrivacySummary";
 import { currentUser, enabledProviders } from "@/lib/auth";
 import { getEligibility } from "@/lib/attempts";
 import { getMeta } from "@/content/assessments";
@@ -22,7 +23,12 @@ export default async function AssessmentLanding({ params }: { params: Promise<{ 
 
   let body: React.ReactNode;
   if (!user) {
-    body = <SignIn callbackUrl={`/a/${slug}`} providers={enabledProviders} heading="Sign in to begin" />;
+    body = (
+      <>
+        <SignIn callbackUrl={`/a/${slug}`} providers={enabledProviders} heading="Sign in to begin" />
+        <PrivacySummary />
+      </>
+    );
   } else {
     const e = await getEligibility(slug, user.email);
     switch (e.state) {
@@ -86,6 +92,7 @@ export default async function AssessmentLanding({ params }: { params: Promise<{ 
                 })()}
               </li>
             </ul>
+            <PrivacySummary />
             <StartForm slug={slug} defaultName={user.name} minutes={meta.timeLimitMinutes} />
           </>
         );

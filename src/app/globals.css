@@ -134,3 +134,7 @@ table.data td { padding: 9px 10px; border-bottom: 1px solid var(--border); verti
 table.data tr:hover td { background: var(--surface-2); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 .table-scroll { overflow-x: auto; }
+
+.privacy-box { margin-top: 20px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+.privacy-box h3 { margin: 0 0 6px; font-size: 15px; }
+.privacy-box p { margin: 0 0 8px; color: var(--text-2); }
