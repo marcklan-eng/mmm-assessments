@@ -134,9 +134,10 @@ function editQuestions(ss, tabName, ops) {
   const header = sh.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(function (h) { return String(h).trim(); });
   function colOf(name) {
     let i = header.map(function (h) { return h.toLowerCase(); }).indexOf(String(name).toLowerCase());
-    if (i === -1) { // add a missing column (e.g. Scoring) at the end of the header row
+    if (i === -1) { // add a missing column (e.g. Type) at the end of the header row
       header.push(name);
       i = header.length - 1;
+      if (sh.getMaxColumns() < i + 1) sh.insertColumnsAfter(sh.getMaxColumns(), i + 1 - sh.getMaxColumns());
       sh.getRange(1, i + 1).setNumberFormat('@').setValue(name).setFontWeight('bold').setBackground('#e3f0f2');
     }
     return i + 1;
