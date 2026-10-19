@@ -1,7 +1,7 @@
 import TopBar from "./TopBar";
 import SignIn from "./SignIn";
 import { currentUser, enabledProviders, type SessionUser } from "@/lib/auth";
-import { canViewQuestions, isEvaluator } from "@/lib/evaluators";
+import { canViewQuestions, isEvaluator, sharingProblem } from "@/lib/evaluators";
 
 /** Renders children(user) only for evaluators (people the results Sheet is shared with). */
 export default async function AdminGate({
@@ -28,6 +28,25 @@ export default async function AdminGate({
   }
   const ok = access === "questions" ? await canViewQuestions(user.email) : await isEvaluator(user.email);
   if (!ok) {
+    const problem = await sharingProblem(access);
+    if (problem) {
+      return (
+        <>
+          <TopBar email={user.email} />
+          <main className="wrap" style={{ maxWidth: 560 }}>
+            <div className="card">
+              <h2>Can’t reach the {access === "questions" ? "questions" : "results"} Sheet</h2>
+              <p className="muted">The app couldn’t read who the Sheet is shared with, so it can’t confirm your access. The Sheet’s script said:</p>
+              <div className="notice notice-bad small">{problem}</div>
+              <p className="small muted" style={{ marginTop: 12 }}>
+                This usually happens right after the Apps Script is changed: check that the <code>SECRET</code> line in Code.gs still has the
+                same password as before, then <b>Deploy → Manage deployments → ✏️ Edit → Version: New version → Deploy</b>. Reload this page after that.
+              </p>
+            </div>
+          </main>
+        </>
+      );
+    }
     return (
       <>
         <TopBar email={user.email} />

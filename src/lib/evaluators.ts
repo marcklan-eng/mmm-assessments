@@ -50,3 +50,14 @@ export async function isEditor(email: string): Promise<boolean> {
     return false;
   }
 }
+
+/** Why the sharing list couldn't be read (e.g. the Sheet's script password doesn't match), or null if it could. */
+export async function sharingProblem(access: "results" | "questions"): Promise<string | null> {
+  try {
+    if (access === "questions") await questionsSharedEmails();
+    else await sheetSharedEmails();
+    return null;
+  } catch (err) {
+    return (err as Error).message || "Unknown error";
+  }
+}
