@@ -95,37 +95,65 @@ export function weeklyTrend(list: Attempt[]) {
   return out;
 }
 
-/** Per-question stats for one question-set version (only attempts taken on that version). */
+/** Per-item stats for one question-set version (only attempts taken on that version).
+ *  A grid scored per row counts as one item per row, numbered like candidates see them. */
 export function questionStats(list: Attempt[], content: QuestionSet) {
   const slug = content.slug;
   const done = list.filter((a) => a.status !== "in_progress" && a.slug === slug && (a.version ?? 0) === content.version);
-  return allQuestions(content)
-    .map((q, i) => {
-      const counts: Record<string, number> = {};
-      let wrong = 0; // missed share, summed over attempts (a per-row grid can be partly missed)
-      let blank = 0;
-      const pts = pointsOf(q);
-      for (const a of done) {
-        const c = a.answers[q.id];
-        if (!c) { blank++; wrong++; continue; }
-        if (!isAnswered(q, c)) blank++;
-        counts[c] = (counts[c] ?? 0) + 1;
-        wrong += 1 - pointsEarned(q, c) / pts;
+  type Item = { id: string; section: string; prompt: string; correct: string; pick: (a: Attempt) => string | undefined; right: (v: string) => boolean; text: (v: string) => string };
+  const items: Item[] = [];
+  for (const s of content.sections) {
+    for (const q of s.questions) {
+      if (pointsOf(q) > 1 && q.rows) {
+        const want = q.answer.split(",");
+        const title = q.prompt.split("\n")[0];
+        q.rows.forEach((r, ri) =>
+          items.push({
+            id: `${q.id}-${r.id}`,
+            section: s.title,
+            prompt: `${title}: ${r.text}`,
+            correct: q.options.find((o) => o.id === want[ri])?.text ?? "",
+            pick: (a) => (a.answers[q.id] ?? "").split(",")[ri] || undefined,
+            right: (v) => v === want[ri],
+            text: (v) => q.options.find((o) => o.id === v)?.text ?? "",
+          }),
+        );
+      } else {
+        items.push({
+          id: q.id,
+          section: s.title,
+          prompt: q.prompt,
+          correct: answerText(q, q.answer),
+          pick: (a) => (isAnswered(q, a.answers[q.id]) ? a.answers[q.id] : undefined),
+          right: (v) => isCorrect(q, v),
+          text: (v) => answerText(q, v),
+        });
       }
-      const topWrong = Object.entries(counts)
-        .filter(([id]) => !isCorrect(q, id))
-        .sort((x, y) => y[1] - x[1])[0];
-      const section = content.sections.find((s) => s.questions.includes(q))!;
+    }
+  }
+  return items
+    .map((it, i) => {
+      const counts: Record<string, number> = {};
+      let wrong = 0;
+      let blank = 0;
+      for (const a of done) {
+        const c = it.pick(a);
+        if (!c) { blank++; wrong++; continue; }
+        if (it.right(c)) continue;
+        wrong++;
+        counts[c] = (counts[c] ?? 0) + 1;
+      }
+      const topWrong = Object.entries(counts).sort((x, y) => y[1] - x[1])[0];
       return {
         number: i + 1,
-        id: q.id,
-        section: section.title,
-        prompt: q.prompt,
-        correct: answerText(q, q.answer),
+        id: it.id,
+        section: it.section,
+        prompt: it.prompt,
+        correct: it.correct,
         takers: done.length,
         wrongPct: done.length ? (wrong / done.length) * 100 : 0,
         blank,
-        topWrong: topWrong ? { text: answerText(q, topWrong[0]), pct: (topWrong[1] / done.length) * 100 } : null,
+        topWrong: topWrong ? { text: it.text(topWrong[0]), pct: (topWrong[1] / done.length) * 100 } : null,
       };
     })
     .sort((a, b) => b.wrongPct - a.wrongPct || a.number - b.number);

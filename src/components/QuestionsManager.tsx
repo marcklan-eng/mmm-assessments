@@ -1,4 +1,5 @@
 "use client";
+import { numberLabel, pointsOf } from "@/content/answers";
 import { useCallback, useEffect, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import type { ParseResult, ParsedAssessment } from "@/lib/questionbank";
@@ -141,7 +142,7 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
               <div className="qb-head">
                 <div>
                   <b>{a.title}</b>
-                  <div className="small muted">{a.sectionCount} section{a.sectionCount === 1 ? "" : "s"} · {a.questionCount} question{a.questionCount === 1 ? "" : "s"}{a.points !== a.questionCount ? ` · ${a.points} points` : ""}</div>
+                  <div className="small muted">{a.sectionCount} section{a.sectionCount === 1 ? "" : "s"} · {a.questionCount} question{a.questionCount === 1 ? "" : "s"}</div>
                 </div>
                 <div className="btn-row" style={{ alignItems: "center" }}>
                   {a.errors.length > 0 ? (
@@ -220,10 +221,11 @@ function Preview({ a }: { a: ParsedAssessment }) {
             </div>
           )}
           {s.questions.map((q) => {
-            n++;
+            const start = n + 1;
+            n += pointsOf(q);
             return (
               <div key={q.id} className="qb-q">
-                <div><b>{n}.</b> {q.prompt}</div>
+                <div><b>{numberLabel(start, pointsOf(q))}.</b> {q.prompt}</div>
                 {q.options.length === 0 ? (
                   <div className="small" style={{ marginTop: 6 }}>
                     Typed answer. Accepted: <span className="pill pill-good">✓ {q.answer.split("\n").filter(Boolean).join(" or ")}</span>
@@ -231,7 +233,7 @@ function Preview({ a }: { a: ParsedAssessment }) {
                 ) : q.rows?.length ? (
                   <>
                     <div className="small muted" style={{ marginTop: 6 }}>
-                      {q.scoring === "per-row" ? `One answer per row · ${q.rows.length} points, 1 per row` : "One answer per row · 1 point, all rows must be right"}
+                      {q.scoring === "per-row" ? `One answer per row · counts as ${q.rows.length} questions (${numberLabel(start, q.rows.length)}), 1 point each` : "One answer per row · 1 point, all rows must be right"}
                     </div>
                     <div className="table-scroll">
                       <table className="qb-grid">
@@ -246,7 +248,7 @@ function Preview({ a }: { a: ParsedAssessment }) {
                             const col = q.answer.split(",")[ri];
                             return (
                               <tr key={r.id}>
-                                <th scope="row">{r.text}</th>
+                                <th scope="row">{q.scoring === "per-row" && <span className="muted" style={{ marginRight: 6 }}>{start + ri}.</span>}{r.text}</th>
                                 {q.options.map((o) => (
                                   <td key={o.id} aria-label={o.id === col ? `${r.text}: ${o.text} (correct)` : undefined}>
                                     <span className={`qb-dot ${o.id === col ? "on" : ""}`} />

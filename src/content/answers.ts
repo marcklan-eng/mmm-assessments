@@ -99,6 +99,20 @@ export function pointsEarned(q: Q & { answer: string }, value: string | undefine
   return isCorrect(q, value) ? 1 : 0;
 }
 
+/** How many numbered items a question counts as (a per-row grid: one per row). */
+export const itemsOf = pointsOf;
+
+/** Answered items: rows answered for a per-row grid, otherwise 0 or 1. */
+export function answeredItems(q: Q, value: string | undefined): number {
+  if (q.rows?.length && q.scoring === "per-row") return (value ?? "").split(",").filter(Boolean).length;
+  return isAnswered(q, value) ? 1 : 0;
+}
+
+/** "6" or "6–10" for a question starting at item `start`. */
+export function numberLabel(start: number, count: number): string {
+  return count > 1 ? `${start}–${start + count - 1}` : String(start);
+}
+
 /** Total points for a list of questions. */
 export function totalPoints(qs: Q[]): number {
   return qs.reduce((t, q) => t + pointsOf(q), 0);

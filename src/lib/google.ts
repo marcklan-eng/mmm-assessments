@@ -4,7 +4,7 @@
 import type { Attempt } from "./types";
 import { getMeta } from "@/content/assessments";
 import { getContent, allQuestions, type QuestionSet } from "@/content";
-import { answerText, isCorrect, pointsEarned, pointsOf } from "@/content/answers";
+import { answerText, isCorrect, pointsOf } from "@/content/answers";
 
 type Target = { url?: string; secret?: string; label: string };
 
@@ -180,13 +180,23 @@ export async function attemptRow(a: Attempt, preloaded?: QuestionSet): Promise<{
     `v${a.version ?? 0}`,
   ];
   const headers = [...BASE_HEADERS];
-  qs.forEach((q, i) => {
-    headers.push(`Q${i + 1}`);
+  let n = 0;
+  for (const q of qs) {
     const chosen = a.answers[q.id];
-    const pts = pointsOf(q);
-    const mark = pts > 1 ? `${pointsEarned(q, chosen)}/${pts}` : isCorrect(q, chosen) ? "✓" : "✗";
-    values.push(!chosen ? "— (blank)" : `${mark} ${answerText(q, chosen)}`);
-  });
+    if (pointsOf(q) > 1 && q.rows) {
+      // A grid scored per row: one numbered column per row, e.g. "Q6 Voicemail1".
+      const got = (chosen ?? "").split(","), want = q.answer.split(",");
+      q.rows.forEach((r, ri) => {
+        headers.push(`Q${++n}`);
+        const pick = got[ri];
+        const text = q.options.find((o) => o.id === pick)?.text ?? "";
+        values.push(!pick ? `— (blank) ${r.text}` : `${pick === want[ri] ? "✓" : "✗"} ${r.text} → ${text}`);
+      });
+      continue;
+    }
+    headers.push(`Q${++n}`);
+    values.push(!chosen ? "— (blank)" : `${isCorrect(q, chosen) ? "✓" : "✗"} ${answerText(q, chosen)}`);
+  }
   return { headers, values };
 }
 

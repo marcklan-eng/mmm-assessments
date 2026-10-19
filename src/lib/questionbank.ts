@@ -265,7 +265,7 @@ export async function parseQuestionRows(rows: string[][], labels?: string[]): Pr
       slug,
       title: d.title,
       content,
-      questionCount: allQuestions(content).length,
+      questionCount: totalPoints(allQuestions(content)), // numbered items (a per-row grid counts once per row)
       points: totalPoints(allQuestions(content)),
       sectionCount: d.sections.length,
       errors: d.errors,

@@ -4,7 +4,7 @@ import type { ActivityType, Attempt } from "./types";
 import { getMeta, RETAKE_MONTHS } from "@/content/assessments";
 import { getContent, allQuestions, currentVersion } from "@/content";
 import { appendToSheet, sheetConfigured } from "./google";
-import { isTextQuestion, pointsEarned, totalPoints } from "@/content/answers";
+import { isTextQuestion, pointsEarned, pointsOf, totalPoints } from "@/content/answers";
 import type { SessionUser } from "./auth";
 
 /** Answers arriving up to this long after the deadline are still accepted (network delay). */
@@ -200,8 +200,10 @@ export async function publicView(a: Attempt) {
         questions: o.questionIds.map((qid) => {
           const q = byId.get(qid)!;
           const opts = a.optionOrder[qid].map((oid) => q.options.find((x) => x.id === oid)!);
-          n += 1;
-          return { id: q.id, number: n, prompt: q.prompt, options: opts, rows: q.rows ?? null };
+          const count = pointsOf(q);
+          const number = n + 1;
+          n += count;
+          return { id: q.id, number, count, prompt: q.prompt, options: opts, rows: q.rows ?? null };
         }),
       };
     }),

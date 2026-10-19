@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PublicAttempt } from "@/lib/attempts";
 import type { ActivityType } from "@/lib/types";
 import "./exam.css";
-import { isAnswered, setGridRow } from "@/content/answers";
+import { answeredItems, numberLabel, setGridRow } from "@/content/answers";
 
 type Stim = PublicAttempt["sections"][number]["stimuli"][number];
 
@@ -187,9 +187,12 @@ export default function ExamClient({ slug }: { slug: string }) {
 
   if (!data) return <div className="exam-loading">Loading your assessment…</div>;
 
-  const total = data.sections.reduce((n, s) => n + s.questions.length, 0);
+  // Counted in numbered items: a grid scored per row counts once per row.
+  const items = (q: { count: number; rows: unknown }, v: string | undefined) =>
+    q.count > 1 ? (v ?? "").split(",").filter(Boolean).length : answeredItems(q as never, v);
+  const total = data.sections.reduce((n, s) => n + s.questions.reduce((t, q) => t + q.count, 0), 0);
   const allQs = data.sections.flatMap((s) => s.questions);
-  const answered = allQs.filter((q) => isAnswered(q, answers[q.id])).length;
+  const answered = allQs.reduce((t, q) => t + items(q, answers[q.id]), 0);
   const section = data.sections[sectionIdx];
   const mins = Math.floor(remaining / 60000);
   const secs = Math.floor((remaining % 60000) / 1000);
@@ -216,11 +219,12 @@ export default function ExamClient({ slug }: { slug: string }) {
 
       <nav className="exam-nav" aria-label="Sections">
         {data.sections.map((s, i) => {
-          const done = s.questions.filter((q) => isAnswered(q, answers[q.id])).length;
+          const done = s.questions.reduce((t, q) => t + items(q, answers[q.id]), 0);
+          const of = s.questions.reduce((t, q) => t + q.count, 0);
           return (
             <button key={s.id} className={`sec-tab ${i === sectionIdx ? "active" : ""}`} onClick={() => goTo(i)}>
               <span>{s.title}</span>
-              <span className={`sec-count ${done === s.questions.length ? "full" : ""}`}>{done}/{s.questions.length}</span>
+              <span className={`sec-count ${done === of ? "full" : ""}`}>{done}/{of}</span>
             </button>
           );
         })}
@@ -262,7 +266,7 @@ export default function ExamClient({ slug }: { slug: string }) {
           {section.questions.map((q) => (
             <fieldset key={q.id} className="question">
               <legend>
-                <span className="qnum">{q.number}</span>
+                <span className={`qnum ${q.count > 1 ? "qnum-range" : ""}`}>{numberLabel(q.number, q.count)}</span>
                 <span>{q.prompt}</span>
               </legend>
               {q.options.length === 0 ? (
@@ -288,7 +292,7 @@ export default function ExamClient({ slug }: { slug: string }) {
                         const picked = (answers[q.id] ?? "").split(",")[ri];
                         return (
                           <tr key={r.id}>
-                            <th scope="row">{r.text}</th>
+                            <th scope="row">{q.count > 1 && <span className="row-num">{q.number + ri}.</span>}{r.text}</th>
                             {q.options.map((o) => (
                               <td key={o.id}>
                                 <label className={`grid-cell ${picked === o.id ? "chosen" : ""}`}>

@@ -103,3 +103,5 @@
 .stim-audio audio { flex: 1; min-width: 240px; }
 .text-answer { margin-top: 10px; max-width: 360px; }
 .text-answer .input { width: 100%; }
+.qnum.qnum-range { width: auto; min-width: 26px; padding: 0 8px; border-radius: 13px; }
+.row-num { color: var(--text-3); font-weight: 600; margin-right: 8px; font-variant-numeric: tabular-nums; }
