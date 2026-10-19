@@ -65,6 +65,12 @@ export async function pingQuestionsSheet(): Promise<string> {
   return r.sheetName;
 }
 
+/** Which Sheet and script version the questions connection reaches (for troubleshooting). */
+export async function questionsScriptInfo(): Promise<{ sheetName: string; scriptVersion: number | null }> {
+  const r = await callTarget<{ sheetName: string; scriptVersion?: number }>(QUESTIONS, "ping");
+  return { sheetName: r.sheetName, scriptVersion: r.scriptVersion ?? null };
+}
+
 /** Which version of apps-script/Code.gs is deployed (1 = before the question bank). */
 async function scriptVersion(): Promise<number> {
   if (!versionCache || Date.now() - versionCache.at > 5 * 60_000) await pingSheet();

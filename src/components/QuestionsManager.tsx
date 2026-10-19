@@ -8,7 +8,8 @@ import QuestionEditor from "./QuestionEditor";
 type Live = { slug: string; title: string; version: number | null; questions: number; publishedAt: number | null; publishedBy: string | null };
 type MediaItem = { name: string; source: "built-in" | "uploaded"; size: number | null; uploadedAt: number | null; kind: "image" | "video" | "audio" | null; inUse: boolean };
 type MediaList = { blobConfigured: boolean; assessments: { slug: string; title: string; items: MediaItem[] }[] };
-type Check = ({ tab: false } | ({ tab: true } & ParseResult)) & { sheetUrl?: string | null };
+type Diagnostics = { sheetName: string | null; scriptVersion: number | null; tabs: { name: string; rows: number }[] };
+type Check = ({ tab: false; diagnostics?: Diagnostics } | ({ tab: true } & ParseResult)) & { sheetUrl?: string | null };
 
 const CACHE_KEY = "sea-questions-check";
 const fmtDate = (ms: number | null) => (ms ? new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "");
@@ -156,6 +157,19 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
         {!check && checking && (
           <div className="qb-loading" role="status">
             <span className="spinner" aria-hidden /> Reading the questions Sheet… this takes a few seconds.
+          </div>
+        )}
+
+        {check && !check.tab && check.diagnostics && (
+          <div className="notice notice-warn small" style={{ marginTop: 12 }}>
+            <b>The app couldn’t find any questions.</b> This is what the questions connection reaches:
+            <ul className="clean" style={{ margin: "6px 0" }}>
+              <li>Sheet: <b>{check.diagnostics.sheetName ?? "unknown"}</b>{check.sheetUrl && <> · <a href={check.sheetUrl} target="_blank" rel="noreferrer">open it ↗</a></>}</li>
+              <li>Script version: <b>{check.diagnostics.scriptVersion ?? "older than 2"}</b> (the latest is 4)</li>
+              <li>Tabs it sees: {check.diagnostics.tabs.length ? check.diagnostics.tabs.map((t) => `${t.name} (${t.rows} row${t.rows === 1 ? "" : "s"})`).join(", ") : <b>none</b>}</li>
+            </ul>
+            If that isn’t <b>Live SEA Questions</b> with your assessment tabs, the app is connected to a different Sheet or an old script deployment.
+            Please send this box to whoever set up the app.
           </div>
         )}
 
