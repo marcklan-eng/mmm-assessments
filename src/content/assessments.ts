@@ -91,7 +91,32 @@ export const ASSESSMENTS: AssessmentMeta[] = [
       "We appreciate your interest in the Dental Biller position and wish you the best of luck with your assessment!",
     ],
   },
-  { slug: "general-business-va", title: "General Business VA", status: "coming-soon", ...base },
+  {
+    slug: "general-virtual-assistant",
+    title: "General Virtual Assistant",
+    status: "coming-soon",
+    ...base,
+    timeLimitMinutes: 20,
+    intro: [
+      "Welcome to the General Virtual Assistant assessment. This assessment is designed to evaluate your skills and abilities as a virtual assistant. Please read each question carefully and provide your response.",
+      "Read each question carefully and select the best answer based on your knowledge and experience. If you're unsure about an answer, provide your best response. Responses will be evaluated based on relevance and appropriateness for the role of a virtual assistant.",
+      "You have 20 minutes to complete the assessment. Once done, make sure to click on SUBMIT to record your responses.",
+      "Results will be communicated to you during the Skills Evaluation Interview.",
+    ],
+  },
+  {
+    slug: "executive-assistant",
+    title: "Executive Assistant",
+    status: "coming-soon",
+    ...base,
+    timeLimitMinutes: 20,
+    intro: [
+      "Welcome to the Executive Assistant Skills Assessment! This assessment is designed to evaluate your proficiency and suitability for the role of an executive assistant.",
+      "As an executive assistant, you will be responsible for providing high-level administrative support to executives and senior management, managing schedules, coordinating meetings, and handling various tasks to ensure the smooth operation of the executive's office. This assessment will consist of questions to gauge your organizational skills, communication abilities, attention to detail, and problem-solving capabilities.",
+      "Please read each question carefully and select the most appropriate response. Answer each question honestly and to the best of your ability. You have 20 minutes to finish the assessment. Once you have finished the assessment, click on the submit button at the end.",
+      "Results will be communicated to you during the Skills Evaluation Interview.",
+    ],
+  },
 
 ];
 

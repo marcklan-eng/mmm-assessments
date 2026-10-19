@@ -86,7 +86,7 @@ export default async function AssessmentLanding({ params }: { params: Promise<{ 
                 })()}
               </li>
             </ul>
-            <StartForm slug={slug} defaultName={user.name} />
+            <StartForm slug={slug} defaultName={user.name} minutes={meta.timeLimitMinutes} />
           </>
         );
         break;

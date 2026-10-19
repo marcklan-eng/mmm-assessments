@@ -35,7 +35,7 @@ const SCRIPT_VERSION = 3; // the app checks this to know which features the scri
 // Assessment columns on the summary tab, in this order (missing ones are added automatically).
 const ASSESSMENTS = [
   'Medical Receptionist', 'Medical Admin', 'Medical Biller', 'Advanced RCM', 'Medical Scribe',
-  'Health Educator', 'Dental Receptionist', 'Dental Biller', 'General Business VA',
+  'Health Educator', 'Dental Receptionist', 'Dental Biller', 'General Virtual Assistant', 'Executive Assistant',
 ];
 
 function doPost(e) {

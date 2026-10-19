@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 
-export default function StartForm({ slug, defaultName }: { slug: string; defaultName: string }) {
+export default function StartForm({ slug, defaultName, minutes = 30 }: { slug: string; defaultName: string; minutes?: number }) {
   const [name, setName] = useState(defaultName);
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -39,7 +39,7 @@ export default function StartForm({ slug, defaultName }: { slug: string; default
       </label>
       {err && <p className="small" style={{ color: "var(--bad)", marginTop: 10 }}>{err}</p>}
       <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={!agreed || name.trim().length < 2 || busy} onClick={start}>
-        {busy ? "Starting…" : "Start assessment (30:00)"}
+        {busy ? "Starting…" : `Start assessment (${minutes}:00)`}
       </button>
     </div>
   );

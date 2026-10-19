@@ -133,7 +133,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 <Kpi label="Failed" value={o.failed} sub="Below 80%" />
                 <Kpi label="Timed out" value={o.timedOut} sub={`${o.submitted} submitted on their own`} />
                 <Kpi label="Average score" value={pct(o.avgScore)} sub="Passing is 80%" />
-                <Kpi label="Average time" value={o.avgMinutes == null ? "—" : `${o.avgMinutes.toFixed(1)} min`} sub="Of 30 minutes" />
+                <Kpi label="Average time" value={o.avgMinutes == null ? "—" : `${o.avgMinutes.toFixed(1)} min`} sub={singleSlug ? `Of ${getMeta(singleSlug)?.timeLimitMinutes} minutes` : "Time used"} />
                 <Kpi label="Flagged activity" value={o.flagged} sub="3+ window/copy events" />
               </section>
 
