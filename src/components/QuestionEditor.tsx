@@ -45,7 +45,7 @@ export default function QuestionEditor({ slug, title, onSaved }: { slug: string;
   const [rows, setRows] = useState<Row[] | null>(null);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
-  const [open, setOpen] = useState<{ row: number; mode: "edit" | "add" } | null>(null);
+  const [open, setOpen] = useState<{ row: number; mode: "edit" | "add" | "section" } | null>(null);
   const [filter, setFilter] = useState("");
 
   const [library, setLibrary] = useState<{ items: MediaItem[]; canUpload: boolean }>({ items: [], canUpload: false });
@@ -84,6 +84,7 @@ export default function QuestionEditor({ slug, title, onSaved }: { slug: string;
 
   let n = 0;
   let section = "";
+  const sectionNames = [...new Set(rows.map((r) => r.cells["Section"].trim()).filter(Boolean))];
   return (
     <div className="qb-editor">
       <div className="notice notice-info small" style={{ marginBottom: 10 }}>
@@ -92,13 +93,15 @@ export default function QuestionEditor({ slug, title, onSaved }: { slug: string;
       {msg && <div className="notice notice-good small" style={{ marginBottom: 10 }} role="status">{msg}</div>}
       {err && <div className="notice notice-bad small" style={{ marginBottom: 10 }} role="alert">{err}</div>}
       <input className="input" placeholder="Find a question…" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ marginBottom: 8 }} aria-label="Find a question" />
-      {rows.map((r) => {
+      {rows.map((r, idx) => {
         const isQ = Boolean(r.cells["Question"].trim());
         const start = n + 1;
         if (isQ) n += itemsOfRow(r.cells);
         const label = isQ ? (itemsOfRow(r.cells) > 1 ? `${start}–${n}` : `${start}`) : "—";
         const newSection = r.cells["Section"].trim() && r.cells["Section"].trim() !== section;
         if (r.cells["Section"].trim()) section = r.cells["Section"].trim();
+        const nextSec = rows[idx + 1]?.cells["Section"].trim();
+        const lastOfSection = idx === rows.length - 1 || Boolean(nextSec && nextSec !== section);
         const shown = !filter || JSON.stringify(r.cells).toLowerCase().includes(filter.toLowerCase());
         if (!shown) return null;
         return (
@@ -120,6 +123,14 @@ export default function QuestionEditor({ slug, title, onSaved }: { slug: string;
             {open?.row === r.row && open.mode === "add" && (
               <EditForm library={library} reloadLibrary={loadLibrary} slug={slug} row={{ row: r.row, cells: {} }} adding sectionName={section} onCancel={() => setOpen(null)} onSaved={saved} />
             )}
+            {lastOfSection && !filter && (open?.row === r.row && open.mode === "section" ? (
+              <EditForm library={library} reloadLibrary={loadLibrary} slug={slug} row={{ row: r.row, cells: {} }} adding newSection
+                sectionNames={sectionNames} sectionName={section} onCancel={() => setOpen(null)} onSaved={saved} />
+            ) : (
+              <button className="qe-addsec" onClick={() => { setMsg(""); setErr(""); setOpen({ row: r.row, mode: "section" }); }} disabled={Boolean(open)}>
+                + New section after “{section}”
+              </button>
+            ))}
           </div>
         );
       })}
@@ -127,7 +138,7 @@ export default function QuestionEditor({ slug, title, onSaved }: { slug: string;
   );
 }
 
-function EditForm({ library, reloadLibrary, slug, row, adding, sectionName, onCancel, onSaved }: { library: { items: MediaItem[]; canUpload: boolean }; reloadLibrary: () => Promise<void>; slug: string; row: Row; adding?: boolean; sectionName: string; onCancel: () => void; onSaved: (msg: string) => void }) {
+function EditForm({ library, reloadLibrary, slug, row, adding, newSection, sectionNames = [], sectionName, onCancel, onSaved }: { library: { items: MediaItem[]; canUpload: boolean }; reloadLibrary: () => Promise<void>; slug: string; row: Row; adding?: boolean; newSection?: boolean; sectionNames?: string[]; sectionName: string; onCancel: () => void; onSaved: (msg: string) => void }) {
   const c = row.cells;
   const get = (h: string) => c[h] ?? "";
   const [kind, setKind] = useState<Kind>(adding ? "single" : kindOf(c));
@@ -169,7 +180,7 @@ function EditForm({ library, reloadLibrary, slug, row, adding, sectionName, onCa
     const p = Number(points);
     v["Scoring"] = kind === "grid" ? (perRow ? "Per row" : "") : p && p !== 1 ? String(p) : "";
     v["Question Media"] = qMedia;
-    if (firstOfSection) {
+    if (firstOfSection || newSection) {
       v["Section"] = sec.s;
       v["Section Description"] = sec.d;
       v["Section Media"] = sec.m;
@@ -178,6 +189,10 @@ function EditForm({ library, reloadLibrary, slug, row, adding, sectionName, onCa
   }
 
   async function save(op: "update" | "insert" | "delete") {
+    if (newSection) {
+      if (!sec.s.trim()) return setErr("Give the new section a name.");
+      if (sectionNames.some((x) => x.toLowerCase() === sec.s.trim().toLowerCase())) return setErr(`There is already a section called “${sec.s.trim()}”. Use a different name.`);
+    }
     setBusy(true);
     setErr("");
     try {
@@ -185,7 +200,7 @@ function EditForm({ library, reloadLibrary, slug, row, adding, sectionName, onCa
         method: "POST",
         body: JSON.stringify({ slug, op, row: row.row, before: adding ? {} : c, values: op === "delete" ? {} : build() }),
       });
-      onSaved(op === "delete" ? "Question deleted from the Sheet." : op === "insert" ? "Question added to the Sheet." : "Saved to the Sheet.");
+      onSaved(op === "delete" ? "Question deleted from the Sheet." : newSection ? `Section “${sec.s.trim()}” added to the Sheet with its first question. Use + Below to add more questions to it.` : op === "insert" ? "Question added to the Sheet." : "Saved to the Sheet.");
     } catch (e) {
       setErr((e as Error).message);
       setConfirmDelete(false);
@@ -196,9 +211,19 @@ function EditForm({ library, reloadLibrary, slug, row, adding, sectionName, onCa
   return (
     <div className="qe-form">
       <div className="qe-form-head">
-        <b>{adding ? "New question" : "Edit question"}</b>
-        <span className="small muted">Section: {sectionName}{adding ? " (added after the question above)" : ""}</span>
+        <b>{newSection ? "New section" : adding ? "New question" : "Edit question"}</b>
+        <span className="small muted">{newSection ? `Added after “${sectionName}”` : `Section: ${sectionName}${adding ? " (added after the question above)" : ""}`}</span>
       </div>
+
+      {newSection && (
+        <div className="qe-newsec">
+          <label className="small">Section name (the skill, e.g. “Insurance Verification”)<input className="input" value={sec.s} onChange={(e) => setSec({ ...sec, s: e.target.value })} /></label>
+          <label className="small">Section description (instructions shown at the top of the section)<textarea className="input" rows={3} value={sec.d} onChange={(e) => setSec({ ...sec, d: e.target.value })} /></label>
+          <MediaField label="Section media (optional, shown at the top of the section)" slug={slug} value={sec.m} onChange={(m) => setSec({ ...sec, m })}
+            library={library.items} canUpload={library.canUpload} onUploaded={reloadLibrary} allowLayout />
+          <div className="small"><b>First question of this section</b></div>
+        </div>
+      )}
 
       {firstOfSection && (
         <details className="qe-details">

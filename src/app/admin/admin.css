@@ -125,3 +125,7 @@ tr.muted td { color: var(--text-3); }
   .mf-thumb { width: 56px; height: 44px; }
   .mf-actions { grid-column: 1 / -1; justify-content: flex-end; }
 }
+.qe-addsec { display: block; width: 100%; margin: 8px 0 4px; padding: 8px; border: 1px dashed var(--border); border-radius: 8px; background: transparent; color: var(--text-2); font: inherit; font-size: 13.5px; cursor: pointer; text-align: center; }
+.qe-addsec:hover:not(:disabled) { background: var(--surface); color: var(--text); }
+.qe-addsec:disabled { opacity: .5; cursor: default; }
+.qe-newsec { display: grid; gap: 10px; padding-bottom: 10px; border-bottom: 1px dashed var(--border); }
