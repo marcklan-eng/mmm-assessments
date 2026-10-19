@@ -122,6 +122,23 @@ export async function seedQuestionTabs(tabs: QuestionTab[]): Promise<{ created: 
   return callTarget<{ created: string[]; skipped: string[] }>(QUESTIONS, "seedQuestions", { tabs });
 }
 
+export type QuestionEditOp =
+  | { op: "update"; row: number; before: Record<string, string>; values: Record<string, string> }
+  | { op: "insert"; after: number; values: Record<string, string> }
+  | { op: "delete"; row: number; before: Record<string, string> };
+
+/** Saves an edit made in the app to a question tab. Throws a clear message if the row changed in the Sheet meanwhile. */
+export async function editQuestionTab(tab: string, ops: QuestionEditOp[]): Promise<{ insertedAt: number | null }> {
+  try {
+    return await callTarget<{ insertedAt: number | null }>(QUESTIONS, "editQuestions", { tab, ops });
+  } catch (e) {
+    if (/conflict/.test((e as Error).message)) {
+      throw new Error("This question was changed in the Sheet since you opened it. Close the editor, open it again and redo your change.");
+    }
+    throw e;
+  }
+}
+
 // ---------- Results rows ----------
 
 const BASE_HEADERS = [

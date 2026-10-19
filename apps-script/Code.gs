@@ -16,6 +16,8 @@
  *     (who can publish questions)
  *   - "readQuestions": returns every tab as displayed text (questions Sheet: one tab per assessment)
  *   - "seedQuestions": fills each assessment's tab with the questions that are live now
+ *   - "editQuestions": saves a question edited in the app (update, add or delete one row of a tab).
+ *     Every change says what the row held before; if someone changed it in the Sheet meanwhile, nothing is written.
  *   - "ping": connection test
  * Run rebuildSummary() from the editor any time to rebuild the summary tab from all assessment tabs.
  */
@@ -30,7 +32,7 @@ const BASE_HEADERS = [
   'Retake After', 'Attempt ID', 'Question Set',
 ];
 const QUESTIONS_TAB = 'Questions';
-const SCRIPT_VERSION = 3; // the app checks this to know which features the script supports
+const SCRIPT_VERSION = 4; // the app checks this to know which features the script supports
 
 // Assessment columns on the summary tab, in this order (missing ones are added automatically).
 const ASSESSMENTS = [
@@ -85,6 +87,16 @@ function doPost(e) {
       return reply({ ok: true, created: created, skipped: skipped });
     }
 
+    if (body.action === 'editQuestions') {
+      const lock = LockService.getScriptLock();
+      lock.waitLock(20000);
+      try {
+        return reply(editQuestions(ss, body.tab, body.ops || []));
+      } finally {
+        lock.releaseLock();
+      }
+    }
+
     if (body.action === 'append') {
       const lock = LockService.getScriptLock();
       lock.waitLock(20000);
@@ -108,6 +120,57 @@ function doPost(e) {
   } catch (err) {
     return reply({ ok: false, error: String(err && err.message ? err.message : err) });
   }
+}
+
+/**
+ * ops: [{ op: 'update', row, before: {Header: text}, values: {Header: text} },
+ *       { op: 'insert', after, values }, { op: 'delete', row, before }]
+ * Rows are 1-based Sheet rows as they are before any op runs. Text is written as plain text.
+ */
+function editQuestions(ss, tabName, ops) {
+  const sh = ss.getSheetByName(tabName);
+  if (!sh) return { ok: false, error: 'Tab "' + tabName + '" not found.' };
+  const lastCol = Math.max(sh.getLastColumn(), 1);
+  const header = sh.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(function (h) { return String(h).trim(); });
+  function colOf(name) {
+    let i = header.map(function (h) { return h.toLowerCase(); }).indexOf(String(name).toLowerCase());
+    if (i === -1) { // add a missing column (e.g. Scoring) at the end of the header row
+      header.push(name);
+      i = header.length - 1;
+      sh.getRange(1, i + 1).setNumberFormat('@').setValue(name).setFontWeight('bold').setBackground('#e3f0f2');
+    }
+    return i + 1;
+  }
+  const clean = function (v) { return String(v == null ? '' : v).replace(/\r/g, '').trim(); };
+  // 1. Everything must still match what the editor saw.
+  for (let k = 0; k < ops.length; k++) {
+    const o = ops[k];
+    if (!o.before) continue;
+    if (o.row < 2 || o.row > sh.getLastRow()) return { ok: false, error: 'conflict' };
+    const names = Object.keys(o.before);
+    for (let j = 0; j < names.length; j++) {
+      const i = header.map(function (h) { return h.toLowerCase(); }).indexOf(names[j].toLowerCase());
+      const now = i === -1 ? '' : sh.getRange(o.row, i + 1).getDisplayValue();
+      if (clean(now) !== clean(o.before[names[j]])) return { ok: false, error: 'conflict' };
+    }
+  }
+  function write(row, values) {
+    Object.keys(values).forEach(function (name) {
+      const c = colOf(name);
+      sh.getRange(row, c).setNumberFormat('@').setValue(String(values[name] == null ? '' : values[name]));
+    });
+    sh.getRange(row, 1, 1, header.length).setWrap(true).setVerticalAlignment('top');
+  }
+  // 2. Updates first, then inserts/deletes from the bottom up so row numbers stay valid.
+  ops.filter(function (o) { return o.op === 'update'; }).forEach(function (o) { write(o.row, o.values || {}); });
+  const moves = ops.filter(function (o) { return o.op === 'insert' || o.op === 'delete'; })
+    .sort(function (a, b) { return (b.row || b.after) - (a.row || a.after); });
+  let insertedAt = null;
+  moves.forEach(function (o) {
+    if (o.op === 'delete') sh.deleteRow(o.row);
+    else { sh.insertRowAfter(o.after); write(o.after + 1, o.values || {}); insertedAt = o.after + 1; }
+  });
+  return { ok: true, insertedAt: insertedAt };
 }
 
 /** Writes question rows as plain text (so answers like 1.50 or 015814 aren't turned into numbers) and formats the tab. */

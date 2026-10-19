@@ -3,6 +3,7 @@ import { isDateQuestion, itemsOf, numberLabel } from "@/content/answers";
 import { useCallback, useEffect, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import type { ParseResult, ParsedAssessment } from "@/lib/questionbank";
+import QuestionEditor from "./QuestionEditor";
 
 type Live = { slug: string; title: string; version: number | null; questions: number; publishedAt: number | null; publishedBy: string | null };
 type MediaItem = { name: string; source: "built-in" | "uploaded"; size: number | null; uploadedAt: number | null; kind: "image" | "video" | "audio" | null; inUse: boolean };
@@ -26,6 +27,7 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ParsedAssessment | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -152,7 +154,10 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
                   ) : (
                     <span className="pill pill-good">✓ Ready · would be v{(a.currentVersion ?? 0) + 1}</span>
                   )}
-                  <button className="btn qb-btn" onClick={() => setPreview(preview === a.slug ? null : a.slug)}>{preview === a.slug ? "Hide preview" : "Preview"}</button>
+                  {canEdit && (
+                    <button className="btn qb-btn" onClick={() => { setEditing(editing === a.slug ? null : a.slug); setPreview(null); }}>{editing === a.slug ? "Close editor" : "Edit"}</button>
+                  )}
+                  <button className="btn qb-btn" onClick={() => { setPreview(preview === a.slug ? null : a.slug); setEditing(null); }}>{preview === a.slug ? "Hide preview" : "Preview"}</button>
                   {canEdit && a.changed && (
                     <button className="btn btn-primary qb-btn" disabled={blocked || busy} onClick={() => setConfirm(a)}>Publish</button>
                   )}
@@ -165,6 +170,7 @@ export default function QuestionsManager({ canEdit, live: initialLive }: { canEd
                 <ul className="clean small qb-issues warn">{a.warnings.map((e, i) => <li key={i}>{where(e)}{e.message}</li>)}</ul>
               )}
               {preview === a.slug && <Preview a={a} />}
+              {editing === a.slug && <QuestionEditor slug={a.slug} title={a.title} onSaved={runCheck} />}
             </div>
           );
         })}

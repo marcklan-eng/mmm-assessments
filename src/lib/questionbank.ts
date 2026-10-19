@@ -91,6 +91,11 @@ function fingerprint(c: AssessmentContent) {
 /** Header for a per-assessment tab (no Assessment column needed). */
 export const TAB_HEADERS = QUESTION_HEADERS.filter((h) => h !== "Assessment");
 
+/** Tabs for people, not questions (e.g. "Instructions"), are skipped silently. */
+export function isNoteTab(name: string): boolean {
+  return /^(instructions?|how to|readme|notes?|help)\b/i.test(name.trim()) || name.trim().startsWith("_");
+}
+
 /** Combines the Sheet's tabs into one table with the standard columns, remembering where each row came from. */
 export function combineTabs(tabs: { name: string; rows: string[][] }[]): { rows: string[][]; labels: string[]; errors: Issue[] } {
   const rows: string[][] = [QUESTION_HEADERS];
@@ -98,7 +103,7 @@ export function combineTabs(tabs: { name: string; rows: string[][] }[]): { rows:
   const errors: Issue[] = [];
   for (const t of tabs) {
     const data = t.rows.slice(1).filter((r) => r.some((v) => String(v ?? "").trim()));
-    if (!t.rows.length || !data.length) continue;
+    if (!t.rows.length || !data.length || isNoteTab(t.name)) continue;
     const meta = ASSESSMENTS.find((a) => norm(a.title) === norm(t.name));
     const isQuestionsTab = norm(t.name) === "questions";
     if (!meta && !isQuestionsTab) {
