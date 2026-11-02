@@ -1,11 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
-import { get } from "@vercel/blob";
 import { currentUser } from "@/lib/auth";
 import { getEligibility } from "@/lib/attempts";
 import { canViewQuestions, isEvaluator } from "@/lib/evaluators";
 import { getContent, assetFiles, bundledFiles } from "@/content";
-import { listMedia, contentTypeOf, blobToken } from "@/lib/media";
+import { listMedia, contentTypeOf } from "@/lib/media";
+import { readMedia } from "@/lib/mediastore";
 
 export const dynamic = "force-dynamic";
 
@@ -35,18 +35,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ path: string[] 
   };
   const range = req.headers.get("range");
 
-  // 1. Uploaded on the dashboard (Vercel Blob)
+  // 1. Uploaded on the dashboard (Google Cloud Storage or Vercel Blob)
   const uploaded = (await listMedia(slug))[file];
   if (uploaded) {
-    const r = await get(uploaded.pathname, { access: "private", token: blobToken, headers: range ? { Range: range } : undefined });
-    if (!r || r.statusCode !== 200) return new Response("Not found", { status: 404 });
-    const h = new Headers(baseHeaders);
-    h.set("Content-Type", uploaded.contentType);
-    for (const k of ["content-length", "content-range"]) {
-      const v = r.headers.get(k);
-      if (v) h.set(k, v);
-    }
-    return new Response(r.stream, { status: r.headers.get("content-range") ? 206 : 200, headers: h });
+    const r = await readMedia(uploaded, range);
+    return r ?? new Response("Not found", { status: 404 });
   }
 
   // 2. Shipped with the app

@@ -76,11 +76,11 @@ export default function QuestionEditor({ slug, title, onSaved, refreshedAt }: { 
   const [open, setOpen] = useState<{ row: number; mode: "edit" | "add" | "section" } | null>(null);
   const [filter, setFilter] = useState("");
 
-  const [library, setLibrary] = useState<{ items: MediaItem[]; canUpload: boolean }>({ items: [], canUpload: false });
+  const [library, setLibrary] = useState<{ items: MediaItem[]; canUpload: boolean; provider?: "gcs" | "blob" | null }>({ items: [], canUpload: false });
   const loadLibrary = useCallback(async () => {
     try {
-      const r = await api<{ blobConfigured: boolean; assessments: { slug: string; items: MediaItem[] }[] }>("/api/admin/media");
-      setLibrary({ items: r.assessments.find((a) => a.slug === slug)?.items ?? [], canUpload: r.blobConfigured });
+      const r = await api<{ blobConfigured: boolean; provider?: "gcs" | "blob" | null; assessments: { slug: string; items: MediaItem[] }[] }>("/api/admin/media");
+      setLibrary({ items: r.assessments.find((a) => a.slug === slug)?.items ?? [], canUpload: r.blobConfigured, provider: r.provider ?? null });
     } catch {
       /* the picker still works with typed file names */
     }
@@ -216,7 +216,7 @@ function ListInputs({ items, onChange, addLabel, placeholder, max = MAX, numbere
   );
 }
 
-function EditForm({ library, reloadLibrary, slug, row, adding, newSection, sectionNames = [], sectionName, onCancel, onSaved }: { library: { items: MediaItem[]; canUpload: boolean }; reloadLibrary: () => Promise<void>; slug: string; row: Row; adding?: boolean; newSection?: boolean; sectionNames?: string[]; sectionName: string; onCancel: () => void; onSaved: (msg: string) => void }) {
+function EditForm({ library, reloadLibrary, slug, row, adding, newSection, sectionNames = [], sectionName, onCancel, onSaved }: { library: { items: MediaItem[]; canUpload: boolean; provider?: "gcs" | "blob" | null }; reloadLibrary: () => Promise<void>; slug: string; row: Row; adding?: boolean; newSection?: boolean; sectionNames?: string[]; sectionName: string; onCancel: () => void; onSaved: (msg: string) => void }) {
   const c = row.cells;
   const get = (h: string) => c[h] ?? "";
   const k0: Kind = adding ? "single" : kindOf(c);
@@ -416,7 +416,7 @@ function EditForm({ library, reloadLibrary, slug, row, adding, newSection, secti
           <label className="small">Section name (the skill, e.g. “Insurance Verification”)<input className="input" value={sec.s} onChange={(e) => setSec({ ...sec, s: e.target.value })} /></label>
           <label className="small">Section description (instructions shown at the top of the section)<textarea className="input" rows={3} value={sec.d} onChange={(e) => setSec({ ...sec, d: e.target.value })} /></label>
           <MediaField label="Section media (optional, shown at the top of the section)" slug={slug} value={sec.m} onChange={(m) => setSec({ ...sec, m })}
-            library={library.items} canUpload={library.canUpload} onUploaded={reloadLibrary} allowLayout />
+            library={library.items} canUpload={library.canUpload} provider={library.provider} onUploaded={reloadLibrary} allowLayout />
           <div className="small"><b>First question of this section</b></div>
         </div>
       )}
@@ -427,7 +427,7 @@ function EditForm({ library, reloadLibrary, slug, row, adding, newSection, secti
           <label className="small">Section name<input className="input" value={sec.s} onChange={(e) => setSec({ ...sec, s: e.target.value })} /></label>
           <label className="small">Section description<textarea className="input" rows={3} value={sec.d} onChange={(e) => setSec({ ...sec, d: e.target.value })} /></label>
           <MediaField label="Section media (shown at the top of the section)" slug={slug} value={sec.m} onChange={(m) => setSec({ ...sec, m })}
-            library={library.items} canUpload={library.canUpload} onUploaded={reloadLibrary} allowLayout />
+            library={library.items} canUpload={library.canUpload} provider={library.provider} onUploaded={reloadLibrary} allowLayout />
         </details>
       )}
 
@@ -586,7 +586,7 @@ function EditForm({ library, reloadLibrary, slug, row, adding, newSection, secti
       )}
 
       <MediaField label="Question media (shown with this question)" slug={slug} value={qMedia} onChange={setQMedia}
-        library={library.items} canUpload={library.canUpload} onUploaded={reloadLibrary} />
+        library={library.items} canUpload={library.canUpload} provider={library.provider} onUploaded={reloadLibrary} />
 
       {err && <div className="notice notice-bad small" role="alert">{err}</div>}
 

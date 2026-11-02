@@ -1,13 +1,13 @@
 "use client";
 import { isDateQuestion, itemsOf, numberLabel, pointsOf } from "@/content/answers";
 import { useCallback, useEffect, useState } from "react";
-import { upload } from "@vercel/blob/client";
+import { uploadMediaFile } from "@/lib/uploadClient";
 import type { ParseResult, ParsedAssessment } from "@/lib/questionbank";
 import QuestionEditor from "./QuestionEditor";
 
 type Live = { slug: string; title: string; version: number | null; questions: number; publishedAt: number | null; publishedBy: string | null };
 type MediaItem = { name: string; source: "built-in" | "uploaded"; size: number | null; uploadedAt: number | null; kind: "image" | "video" | "audio" | null; inUse: boolean };
-type MediaList = { blobConfigured: boolean; assessments: { slug: string; title: string; items: MediaItem[] }[] };
+type MediaList = { blobConfigured: boolean; provider?: "gcs" | "blob" | null; assessments: { slug: string; title: string; items: MediaItem[] }[] };
 type Diagnostics = { sheetName: string | null; scriptVersion: number | null; tabs: { name: string; rows: number }[] };
 type Check = ({ tab: false; diagnostics?: Diagnostics } | ({ tab: true } & ParseResult)) & { sheetUrl?: string | null };
 
@@ -396,18 +396,7 @@ function MediaPanel({ canEdit }: { canEdit: boolean }) {
         const file = files[i];
         setProgress(0);
         setUploading(files.length > 1 ? `${i + 1} of ${files.length}` : "");
-        const safe = file.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9._-]/g, "");
-        const blob = await upload(`assessments/${slug}/${safe}`, file, {
-          access: "private",
-          handleUploadUrl: "/api/admin/media/upload",
-          clientPayload: slug,
-          multipart: file.size > 20 * 1024 * 1024,
-          onUploadProgress: (p) => setProgress(Math.round(p.percentage)),
-        });
-        const r = await api<{ name: string; replaced: boolean }>("/api/admin/media", {
-          method: "POST",
-          body: JSON.stringify({ slug, name: file.name, pathname: blob.pathname, size: file.size }),
-        });
+        const r = await uploadMediaFile(slug, file, data?.provider ?? null, setProgress);
         done.push(r.name);
       }
       setMsg(`Uploaded ${done.length} file${done.length === 1 ? "" : "s"}: ${done.join(", ")}. Use these exact names in the Section Media column.`);
@@ -444,8 +433,8 @@ function MediaPanel({ canEdit }: { canEdit: boolean }) {
       </p>
       {data && !data.blobConfigured && (
         <div className="notice notice-warn small" style={{ marginBottom: 12 }}>
-          File storage isn’t connected yet, so uploads won’t work. In Vercel, open <b>Storage → Create → Blob</b> and connect it to this project.
-          The files that came with the app still work.
+          File storage isn’t connected yet, so uploads won’t work. On Google Cloud, set <b>MEDIA_BUCKET</b> to your Cloud Storage bucket
+          (see the migration guide); on Vercel, open <b>Storage → Create → Blob</b>. The files that came with the app still work.
         </div>
       )}
       {msg && <div className="notice notice-info small" style={{ marginBottom: 10 }}>{msg}</div>}

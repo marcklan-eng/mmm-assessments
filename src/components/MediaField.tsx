@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { upload } from "@vercel/blob/client";
+import { uploadMediaFile } from "@/lib/uploadClient";
 
 // Picks the images / audio / video for a section or a question, and writes them in the Sheet's format:
 // one "file-name.png | Caption" per line (plus "Layout: side by side" for sections shown in a row).
@@ -33,6 +33,7 @@ export default function MediaField({
   onChange,
   library,
   canUpload,
+  provider = null,
   onUploaded,
   allowLayout,
 }: {
@@ -42,6 +43,7 @@ export default function MediaField({
   onChange: (v: string) => void;
   library: MediaItem[];
   canUpload: boolean;
+  provider?: "gcs" | "blob" | null;
   onUploaded: () => Promise<void>;
   allowLayout?: boolean;
 }) {
@@ -63,21 +65,7 @@ export default function MediaField({
     setErr("");
     try {
       setProgress(0);
-      const safe = file.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9._-]/g, "");
-      const blob = await upload(`assessments/${slug}/${safe}`, file, {
-        access: "private",
-        handleUploadUrl: "/api/admin/media/upload",
-        clientPayload: slug,
-        multipart: file.size > 20 * 1024 * 1024,
-        onUploadProgress: (p) => setProgress(Math.round(p.percentage)),
-      });
-      const r = await fetch("/api/admin/media", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, name: file.name, pathname: blob.pathname, size: file.size }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.error || "Upload failed.");
+      const j = await uploadMediaFile(slug, file, provider, setProgress);
       await onUploaded();
       if (!entries.some((e) => e.file === j.name)) set([...entries, { file: j.name, caption: "" }]);
     } catch (e) {

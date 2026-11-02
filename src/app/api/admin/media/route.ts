@@ -1,9 +1,9 @@
-import { del } from "@vercel/blob";
 import { withEvaluator } from "@/lib/adminapi";
 import { HttpError } from "@/lib/attempts";
 import { ASSESSMENTS } from "@/content/assessments";
 import { assetFiles, bundledFiles, getContent } from "@/content";
-import { blobConfigured, blobToken, cleanName, contentTypeOf, listMedia, mediaKind, registerMedia, removeMedia } from "@/lib/media";
+import { cleanName, contentTypeOf, listMedia, mediaKind, registerMedia, removeMedia } from "@/lib/media";
+import { deleteMediaFile, gcsSize, MAX_UPLOAD_BYTES, mediaConfigured, mediaProvider } from "@/lib/mediastore";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +21,7 @@ export async function GET() {
       ].map((m) => ({ ...m, kind: mediaKind(m.name), inUse: used.has(m.name) }));
       out.push({ slug: a.slug, title: a.title, items: items.sort((x, y) => x.name.localeCompare(y.name)) });
     }
-    return { blobConfigured, assessments: out };
+    return { blobConfigured: mediaConfigured, provider: mediaProvider, assessments: out };
   }, "questions");
 }
 
@@ -35,9 +35,20 @@ export async function POST(req: Request) {
     if (!mediaKind(name)) throw new HttpError(400, "Only images (.png, .jpg, .gif, .webp) and videos (.mp4, .webm, .mov) are supported.");
     const pathname = String(b.pathname);
     if (!pathname.startsWith(`assessments/${slug}/`)) throw new HttpError(400, "Unexpected upload location.");
+    const store = mediaProvider === "gcs" ? "gcs" : "blob";
+    let size = Number(b.size) || 0;
+    if (store === "gcs") {
+      const actual = await gcsSize(pathname);
+      if (actual == null) throw new HttpError(400, "The upload didn’t finish. Please try again.");
+      if (actual > MAX_UPLOAD_BYTES) {
+        await deleteMediaFile({ name, pathname, store, contentType: "", size: actual, uploadedAt: 0, uploadedBy: "" });
+        throw new HttpError(400, "Files can be up to 200 MB.");
+      }
+      size = actual;
+    }
     const prev = (await listMedia(slug))[name];
-    if (prev && prev.pathname !== pathname && blobConfigured) await del(prev.pathname, { token: blobToken }).catch(() => {});
-    await registerMedia(slug, { name, pathname, contentType: contentTypeOf(name), size: Number(b.size) || 0, uploadedAt: Date.now(), uploadedBy: user.email });
+    if (prev && prev.pathname !== pathname) await deleteMediaFile(prev);
+    await registerMedia(slug, { name, pathname, store, contentType: contentTypeOf(name), size, uploadedAt: Date.now(), uploadedBy: user.email });
     return { ok: true, name, replaced: Boolean(prev) };
   }, "editor");
 }
@@ -50,7 +61,7 @@ export async function DELETE(req: Request) {
     if (!item) throw new HttpError(404, "File not found.");
     const current = await getContent(slug);
     if (current && assetFiles(current).has(name)) throw new HttpError(400, "The live questions use this file. Publish questions without it first.");
-    if (blobConfigured) await del(item.pathname, { token: blobToken }).catch(() => {});
+    await deleteMediaFile(item);
     await removeMedia(slug, name);
     return { ok: true };
   }, "editor");

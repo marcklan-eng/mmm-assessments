@@ -1,11 +1,12 @@
-// Images, videos and audio for question sets: uploaded on the dashboard to Vercel Blob (private),
+// Images, videos and audio for question sets: uploaded on the dashboard to Google Cloud Storage or Vercel Blob (private),
 // referenced by file name in the Questions tab, and served only through /api/asset.
 import { db } from "./db";
 import { bundledFiles } from "@/content";
 
 export type MediaItem = {
   name: string; // the file name used in the Questions tab, e.g. "superbill-1.png"
-  pathname: string; // where it lives in Blob storage
+  pathname: string; // where it lives in file storage
+  store?: "gcs" | "blob"; // which file storage (missing = Vercel Blob, for files uploaded before Google Cloud)
   contentType: string;
   size: number;
   uploadedAt: number;
@@ -15,7 +16,7 @@ export type MediaItem = {
 // The storage key. Also accepts the longer name Vercel creates when the store is connected
 // with the prefix "BLOB_READ_WRITE_TOKEN".
 export const blobToken =
-  process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN_READ_WRITE_TOKEN || undefined;
+  process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN_READ_WRITE_TOKEN || process.env.OLD_BLOB_READ_WRITE_TOKEN || undefined;
 export const blobConfigured = Boolean(blobToken);
 
 export const IMAGE_TYPES: Record<string, string> = {

@@ -12,6 +12,7 @@ import { DEMO_MODE } from "@/lib/auth";
 import { dashboardOpenForDemo } from "@/lib/evaluators";
 import { usingRedis } from "@/lib/db";
 import { expirySetting } from "@/lib/access";
+import { migrationAvailable } from "@/lib/migrate";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +89,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   <h1 style={{ marginBottom: 0 }}>{singleSlug ? `${getMeta(singleSlug)?.title} assessment` : "All roles"}</h1>
                 </div>
                 <div className="btn-row">
+                  {migrationAvailable && <Link className="btn" href="/admin/migrate">Import old data</Link>}
                   <Link className="btn" href="/admin/questions">Questions &amp; media</Link>
                   {await (async () => {
                     const x = await expirySetting();
