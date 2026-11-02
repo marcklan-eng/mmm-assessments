@@ -23,7 +23,9 @@ export default function StartForm({ slug, defaultName, minutes = 30, sent }: { s
           ? "You’ve already completed this assessment."
           : j.error === "expired"
             ? "This assessment link has expired. Please contact lead@mymountainmover.com."
-            : "Could not start the assessment. Please refresh and try again.",
+            : res.status === 503
+              ? "The assessment can’t be started right now. Please try again in a few minutes, or contact lead@mymountainmover.com."
+              : "Could not start the assessment. Please refresh and try again.",
       );
       setBusy(false);
     }

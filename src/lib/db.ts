@@ -203,6 +203,68 @@ function googleFirestore(): Store {
   return firestoreStore(fs as unknown as FirestoreLike);
 }
 
+// ---------- Firestore with a safe "not connected" mode ----------
+// If Firestore can't be reached (e.g. the AI Studio preview, which has no access to the project's database),
+// pages still open but NOTHING is saved anywhere else: reads come back empty and every save fails with a clear
+// message. Answers never go to a temporary file that would be lost on restart. Every call tries Firestore again.
+
+export class StorageUnavailableError extends Error {
+  status = 503;
+  constructor(detail: string) {
+    super(`The app's database (Firestore) isn't connected, so nothing can be saved right now. ${detail}`.trim());
+  }
+}
+
+let lastStorageError: { at: number; message: string } | null = null;
+/** The most recent Firestore error in the last 2 minutes (shown on the dashboard and setup check). */
+export function storageProblem(): string | null {
+  return lastStorageError && Date.now() - lastStorageError.at < 120_000 ? lastStorageError.message : null;
+}
+
+function guardedFirestore(): Store {
+  let inner: Store | null = null;
+  const get = () => (inner ??= googleFirestore());
+  const fail = (e: unknown) => {
+    if (e instanceof StorageUnavailableError) return;
+    lastStorageError = { at: Date.now(), message: ((e as Error)?.message ?? String(e)).slice(0, 300) };
+    console.error("[storage] Firestore unavailable:", lastStorageError.message);
+  };
+  // Don't let an unreachable database hang pages: give up after 8 s, and for 30 s after a failure don't wait at all.
+  const timed = <R,>(p: Promise<R>) =>
+    Promise.race([p, new Promise<R>((_, rej) => setTimeout(() => rej(new Error("Firestore did not answer within 8 seconds.")), 8000))]);
+  const recentlyFailed = () => Boolean(lastStorageError && Date.now() - lastStorageError.at < 30_000);
+  const read = <A extends unknown[], R>(fn: (s: Store, ...a: A) => Promise<R>, empty: R) => async (...a: A): Promise<R> => {
+    if (recentlyFailed()) return empty;
+    try {
+      const r = await timed(fn(get(), ...a));
+      lastStorageError = null;
+      return r;
+    } catch (e) {
+      fail(e);
+      return empty;
+    }
+  };
+  const write = <A extends unknown[]>(fn: (s: Store, ...a: A) => Promise<void>) => async (...a: A): Promise<void> => {
+    if (recentlyFailed()) throw new StorageUnavailableError("Please try again in a minute.");
+    try {
+      await timed(fn(get(), ...a));
+      lastStorageError = null;
+    } catch (e) {
+      fail(e);
+      throw new StorageUnavailableError("Please try again in a minute.");
+    }
+  };
+  return {
+    getAttempt: read((s, id: string) => s.getAttempt(id), null),
+    saveAttempt: write((s, a: Attempt) => s.saveAttempt(a)),
+    listAttempts: read((s) => s.listAttempts(), [] as Attempt[]),
+    getLatestId: read((s, slug: string, email: string) => s.getLatestId(slug, email), null),
+    setLatestId: write((s, slug: string, email: string, id: string) => s.setLatestId(slug, email, id)),
+    getJSON: read((s, key: string) => s.getJSON(key), null) as Store["getJSON"],
+    setJSON: write((s, key: string, value: unknown) => s.setJSON(key, value)),
+  };
+}
+
 // ---------- Which store ----------
 const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -211,7 +273,7 @@ const wantFirestore =
   process.env.STORAGE === "firestore" || (process.env.STORAGE !== "redis" && !(url && token) && Boolean(process.env.K_SERVICE || process.env.FIRESTORE_PROJECT_ID));
 
 export const storageKind: "firestore" | "redis" | "file" = wantFirestore ? "firestore" : url && token ? "redis" : "file";
-export const db: Store = storageKind === "firestore" ? googleFirestore() : storageKind === "redis" ? redisStore(url!, token!) : fileStore();
+export const db: Store = storageKind === "firestore" ? guardedFirestore() : storageKind === "redis" ? redisStore(url!, token!) : fileStore();
 /** Durable storage (anything but the local development file). */
 export const usingRedis = storageKind !== "file";
 export { redisStore };

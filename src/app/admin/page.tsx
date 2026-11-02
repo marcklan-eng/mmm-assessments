@@ -10,7 +10,7 @@ import { getContent } from "@/content";
 import { fmtDuration, sheetConfigured } from "@/lib/google";
 import { DEMO_MODE } from "@/lib/auth";
 import { dashboardOpenForDemo } from "@/lib/evaluators";
-import { usingRedis } from "@/lib/db";
+import { storageProblem, usingRedis } from "@/lib/db";
 import { expirySetting } from "@/lib/access";
 import { migrationAvailable } from "@/lib/migrate";
 
@@ -69,6 +69,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <>
             <TopBar email={user.email} right={<Link className="small" href="/">Assessments</Link>} />
             <main className="wrap-wide">
+              {storageProblem() && (
+                <div className="notice notice-bad" style={{ marginBottom: 14 }} role="alert">
+                  <b>The database isn’t connected.</b> Nothing can be saved, and candidates can’t start assessments, until Firestore is
+                  reachable. {storageProblem()}
+                </div>
+              )}
               {(DEMO_MODE || !usingRedis || !sheetConfigured) && (
                 <div className="notice notice-warn small" style={{ marginBottom: 14 }}>
                   <b>Prototype setup:</b>{" "}

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { StorageUnavailableError } from "./db";
 import { currentUser, type SessionUser } from "./auth";
 import { HttpError } from "./attempts";
 
@@ -9,7 +10,7 @@ export async function withUser(fn: (u: SessionUser) => Promise<unknown>) {
     const out = await fn(user);
     return out instanceof Response ? out : NextResponse.json(out ?? { ok: true });
   } catch (e) {
-    if (e instanceof HttpError) return NextResponse.json({ error: e.message }, { status: e.status });
+    if (e instanceof HttpError || e instanceof StorageUnavailableError) return NextResponse.json({ error: e.message }, { status: e.status });
     console.error(e);
     return NextResponse.json({ error: "server-error" }, { status: 500 });
   }

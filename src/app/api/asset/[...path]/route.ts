@@ -45,6 +45,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ path: string[] 
   // 2. Shipped with the app
   if (!bundledFiles(slug).has(file)) return new Response("Not found", { status: 404 });
   const full = path.join(process.cwd(), "private-assets", slug, file);
+  if (!fs.existsSync(full)) return new Response("Not found", { status: 404 });
   const size = fs.statSync(full).size;
   const headers = { ...baseHeaders, "Content-Type": contentTypeOf(file) };
   const m = range?.match(/bytes=(\d*)-(\d*)/);

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db, storageKind, usingRedis } from "@/lib/db";
+import { db, storageKind, storageProblem, usingRedis } from "@/lib/db";
 import { DEMO_MODE, enabledProviders, googleClientCheck } from "@/lib/auth";
 import { pingQuestionsSheet, pingSheet, questionsSeparate, sheetConfigured } from "@/lib/google";
 
@@ -11,7 +11,8 @@ export async function GET() {
   if (usingRedis) {
     try {
       await db.getLatestId("health-check", "health@check");
-      storage = `${storageKind}: connected`;
+      const p = storageProblem();
+      storage = p ? `${storageKind}: NOT CONNECTED (${p.slice(0, 160)})` : `${storageKind}: connected`;
     } catch (e) {
       storage = `${storageKind}: ERROR ${(e as Error).message.slice(0, 160)}`;
     }

@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Self-contained server build (what Google AI Studio / Cloud Run expect). `npm start` still works too.
+  output: "standalone",
   // Google's libraries load their own files at runtime, so keep them out of the bundle.
   serverExternalPackages: ["@google-cloud/firestore", "@google-cloud/storage"],
   // Assessment images and videos are served through an authenticated route,

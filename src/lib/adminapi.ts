@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { StorageUnavailableError } from "./db";
 import { currentUser, type SessionUser } from "./auth";
 import { canViewQuestions, isEditor, isEvaluator } from "./evaluators";
 import { HttpError } from "./attempts";
@@ -23,7 +24,7 @@ export async function withEvaluator(fn: (u: SessionUser) => Promise<unknown>, ro
     const out = await fn(user);
     return out instanceof Response ? out : NextResponse.json(out ?? { ok: true });
   } catch (e) {
-    if (e instanceof HttpError) return NextResponse.json({ error: e.message }, { status: e.status });
+    if (e instanceof HttpError || e instanceof StorageUnavailableError) return NextResponse.json({ error: e.message }, { status: e.status });
     console.error(e);
     return NextResponse.json({ error: (e as Error).message || "Something went wrong." }, { status: 500 });
   }
