@@ -3,6 +3,8 @@
 A web app that runs the candidate skills assessments, with results going to a Google Sheet and an evaluator dashboard.
 This prototype has the **Medical Biller** assessment loaded. The other eight show "Coming soon".
 
+**Moving to Google AI Studio / Cloud Run:** see [MIGRATION-GOOGLE.md](MIGRATION-GOOGLE.md).
+
 ## How it works
 
 | | |
