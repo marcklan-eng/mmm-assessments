@@ -269,10 +269,14 @@ function guardedFirestore(): Store {
 const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 /** On Google Cloud Run (K_SERVICE is set there) or when asked for explicitly. */
+/** STORAGE=test: a temporary test copy (e.g. the AI Studio preview). Data is kept only until the app restarts,
+ *  results aren't written to the results Sheet, and every page shows a "test copy" banner. Never used unless set. */
+export const testMode = ["test", "file", "temporary"].includes((process.env.STORAGE ?? "").trim().toLowerCase());
 const wantFirestore =
-  process.env.STORAGE === "firestore" || (process.env.STORAGE !== "redis" && !(url && token) && Boolean(process.env.K_SERVICE || process.env.FIRESTORE_PROJECT_ID));
+  !testMode &&
+  (process.env.STORAGE === "firestore" || (process.env.STORAGE !== "redis" && !(url && token) && Boolean(process.env.K_SERVICE || process.env.FIRESTORE_PROJECT_ID)));
 
-export const storageKind: "firestore" | "redis" | "file" = wantFirestore ? "firestore" : url && token ? "redis" : "file";
+export const storageKind: "firestore" | "redis" | "file" = testMode ? "file" : wantFirestore ? "firestore" : url && token ? "redis" : "file";
 export const db: Store = storageKind === "firestore" ? guardedFirestore() : storageKind === "redis" ? redisStore(url!, token!) : fileStore();
 /** Durable storage (anything but the local development file). */
 export const usingRedis = storageKind !== "file";

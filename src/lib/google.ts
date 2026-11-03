@@ -20,7 +20,8 @@ const QUESTIONS: Target = QUESTIONS_SEPARATE
     }
   : RESULTS;
 
-export const sheetConfigured = Boolean(RESULTS.url && RESULTS.secret);
+// In test mode (STORAGE=test) results are never written to the real results Sheet.
+export const sheetConfigured = Boolean(RESULTS.url && RESULTS.secret) && !["test", "file", "temporary"].includes((process.env.STORAGE ?? "").trim().toLowerCase());
 export const questionsConfigured = Boolean(QUESTIONS.url && QUESTIONS.secret);
 export const questionsSeparate = QUESTIONS_SEPARATE;
 
