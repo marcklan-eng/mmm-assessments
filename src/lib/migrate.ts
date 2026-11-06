@@ -57,14 +57,16 @@ export async function runMigration(): Promise<MigrationReport> {
   const r = new Redis({ url: oldUrl, token: oldToken });
   const rep: MigrationReport = { attempts: 0, candidates: 0, settings: 0, mediaCopied: 0, mediaSkipped: [], errors: [] };
 
-  // 1. Attempts
+  // 1. Attempts (deleted ones, e.g. test attempts, are left behind)
+  const copied = new Set<string>();
   const ids = ((await r.smembers("attempts")) as string[]) ?? [];
   for (let i = 0; i < ids.length; i += 100) {
     const chunk = ids.slice(i, i + 100);
     const rows = await r.mget<(Attempt | null)[]>(...chunk.map((id) => `attempt:${id}`));
-    await inChunks(rows.filter((a): a is Attempt => Boolean(a)), 20, async (a) => {
+    await inChunks(rows.filter((a): a is Attempt => Boolean(a) && !a!.deletedAt), 20, async (a) => {
       try {
         await db.saveAttempt(a);
+        copied.add(a.id);
         rep.attempts++;
       } catch (e) {
         rep.errors.push(`Attempt ${a.id}: ${(e as Error).message}`);
@@ -78,7 +80,7 @@ export async function runMigration(): Promise<MigrationReport> {
     const id = await r.get<string>(k);
     const rest = k.slice("latest:".length);
     const i = rest.indexOf(":");
-    if (!id || i < 0) return;
+    if (!id || i < 0 || !copied.has(id)) return;
     await db.setLatestId(rest.slice(0, i), rest.slice(i + 1), id);
     rep.candidates++;
   });

@@ -70,7 +70,7 @@ Keep the old entries until the switch is done.
 
 1. Open `https://<new address>/api/health`. `storage`, `googleSheet` and `questionsSheet` should say **connected**.
 2. Sign in and open the **dashboard**. Click **Import old data**, then **Import everything from the old app**.
-   This copies every attempt, candidate record, published question set, setting (such as link expiry) and uploaded file.
+   This copies every attempt, candidate record, published question set, setting (such as link expiry) and uploaded file. Deleted attempts (such as test attempts) are left behind.
 3. Check the numbers on the dashboard match the old dashboard.
 
 Running the import again is safe; it copies everything again.
