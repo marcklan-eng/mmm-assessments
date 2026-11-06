@@ -1,9 +1,11 @@
-// One-time move from the Vercel setup (Upstash Redis + Vercel Blob) to Google Cloud (Firestore + Cloud Storage).
+// One-time copy from the old app's storage (Upstash Redis + Vercel Blob) into this app's storage:
+// either a new Vercel account (its own Upstash + Blob) or Google Cloud (Firestore + Cloud Storage).
 // Needs OLD_KV_REST_API_URL / OLD_KV_REST_API_TOKEN (and OLD_BLOB_READ_WRITE_TOKEN for uploaded media) set as secrets.
 // Safe to run more than once: it copies everything again, replacing the same items in the new storage.
 import { Redis } from "@upstash/redis";
-import { get } from "@vercel/blob";
-import { db, storageKind } from "./db";
+import { get, put } from "@vercel/blob";
+import { db, storageKind, redisUrl } from "./db";
+import { blobToken } from "./media";
 import type { Attempt } from "./types";
 import type { MediaItem } from "./media";
 import { mediaProvider, putGcs } from "./mediastore";
@@ -12,6 +14,17 @@ const oldUrl = process.env.OLD_KV_REST_API_URL || process.env.OLD_UPSTASH_REDIS_
 const oldToken = process.env.OLD_KV_REST_API_TOKEN || process.env.OLD_UPSTASH_REDIS_REST_TOKEN || "";
 const oldBlob = process.env.OLD_BLOB_READ_WRITE_TOKEN || "";
 export const migrationAvailable = Boolean(oldUrl && oldToken);
+const norm = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
+/** Where the import copies to, or why it can't. */
+export function migrationTarget(): { ok: boolean; label: string } {
+  if (storageKind === "firestore") return { ok: true, label: "Firestore" };
+  if (storageKind === "redis") {
+    if (oldUrl && norm(oldUrl) === norm(redisUrl)) return { ok: false, label: "the same Upstash database as the old app (nothing to copy)" };
+    return { ok: true, label: "this account’s Upstash database" };
+  }
+  return { ok: false, label: "no database connected yet" };
+}
+const sameBlobStore = Boolean(oldBlob && blobToken && oldBlob === blobToken);
 
 export type MigrationReport = {
   attempts: number;
@@ -39,7 +52,8 @@ async function inChunks<T>(xs: T[], n: number, fn: (x: T) => Promise<void>) {
 
 export async function runMigration(): Promise<MigrationReport> {
   if (!migrationAvailable) throw new Error("Set OLD_KV_REST_API_URL and OLD_KV_REST_API_TOKEN (the Upstash settings from Vercel) first.");
-  if (storageKind !== "firestore") throw new Error("This app isn’t using Firestore yet, so there’s nothing to import into.");
+  const target = migrationTarget();
+  if (!target.ok) throw new Error(`Can’t import: this app is using ${target.label}.`);
   const r = new Redis({ url: oldUrl, token: oldToken });
   const rep: MigrationReport = { attempts: 0, candidates: 0, settings: 0, mediaCopied: 0, mediaSkipped: [], errors: [] };
 
@@ -78,14 +92,15 @@ export async function runMigration(): Promise<MigrationReport> {
     rep.settings++;
   });
 
-  // 4. Uploaded media files: copy from Vercel Blob into Cloud Storage
+  // 4. Uploaded media files: copy from the old Vercel Blob store into this app's Cloud Storage bucket or Blob store
   for (const k of kvKeys.filter((x) => x.startsWith("kv:media:"))) {
     const key = k.slice("kv:".length);
     const list = (await db.getJSON<Record<string, MediaItem>>(key)) ?? {};
     let changed = false;
     for (const item of Object.values(list)) {
       if (item.store === "gcs") continue;
-      if (mediaProvider !== "gcs" || !oldBlob) {
+      if (mediaProvider === "blob" && sameBlobStore) continue; // already in this app's store
+      if (!mediaProvider || !oldBlob) {
         rep.mediaSkipped.push(item.name);
         continue;
       }
@@ -93,8 +108,13 @@ export async function runMigration(): Promise<MigrationReport> {
         const g = await get(item.pathname, { access: "private", token: oldBlob });
         if (!g || g.statusCode !== 200) throw new Error("not found in Vercel Blob");
         const buf = Buffer.from(await new Response(g.stream).arrayBuffer());
-        await putGcs(item.pathname, buf, item.contentType);
-        item.store = "gcs";
+        if (mediaProvider === "gcs") {
+          await putGcs(item.pathname, buf, item.contentType);
+          item.store = "gcs";
+        } else {
+          await put(item.pathname, buf, { access: "private", token: blobToken, contentType: item.contentType, addRandomSuffix: false, allowOverwrite: true });
+          item.store = "blob";
+        }
         changed = true;
         rep.mediaCopied++;
       } catch (e) {

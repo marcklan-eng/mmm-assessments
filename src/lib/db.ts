@@ -281,3 +281,5 @@ export const db: Store = storageKind === "firestore" ? guardedFirestore() : stor
 /** Durable storage (anything but the local development file). */
 export const usingRedis = storageKind !== "file";
 export { redisStore };
+/** The Upstash address this app writes to (used by the import to refuse copying a store onto itself). */
+export const redisUrl = storageKind === "redis" ? url ?? "" : "";
